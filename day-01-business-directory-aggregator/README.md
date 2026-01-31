@@ -73,6 +73,15 @@ name,category,city,region,country,website
 Acme Corp,technology,Berlin,,Germany,https://acme.com
 Pizza Palace,restaurant,Rome,Lazio,Italy,http://pizzapalace.it
 
+### CLI Sorting
+
+You can optionally sort the output by name:
+
+```bash
+python src/main.py data/sample_raw.csv output.csv --sort name
+```
+This sorts the normalized CSV alphabetically by business name. Sorting is optional; if omitted, row order is preserved.
+
 ### How normalization works 
 
 - Names are trimmed and internal whitespace is collapsed.
@@ -93,8 +102,6 @@ To run them:
 pytest
 
 
-They are intentionally minimal and designed to read like examples of expected behavior.
-
 ### Design decisions
 
 - Flat structure with no frameworks to keep the code easy to follow.
@@ -104,16 +111,17 @@ They are intentionally minimal and designed to read like examples of expected be
 
 ### Known limitations
 
-- Category normalization is heuristic and incomplete by design.
-- Location parsing is shallow and not suitable for precise geographic work.
+- Category normalization is heuristic and limited to a small mapping.
+- Location parsing is shallow and not precise for complex addresses.
 - JSON input must be a list of objects.
 - Output is always CSV.
+- Website normalization handles common cases but may drop unusual or malformed URLs.
+- Empty or unparseable fields are left empty.
 
 These tradeoffs were made to keep the project well-scoped.
 
 ### What I’d do with more time
 
-- Add optional sorting or filtering flags to the CLI.
 - Expand category normalization using a configurable mapping.
 - Add lightweight validation reporting (e.g counts of dropped websites).
 - Support streaming large files instead of loading everything into memory.
