@@ -10,7 +10,7 @@ A one-month challenge focused on shipping small, real-world projects. One projec
 
 ## Purpose
 
-Unlike typical "X days of code" challenges, this focuses on engineering judgment. Each project has:
+This challenge focuses on engineering judgment. Each project has:
 
 * a defined user or purpose
 * clear constraints and tradeoffs
