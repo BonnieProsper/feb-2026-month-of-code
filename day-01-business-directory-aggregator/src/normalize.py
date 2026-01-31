@@ -112,6 +112,7 @@ def _normalize_category(value: Optional[Any]) -> str:
 def _parse_location_fallback(value: Optional[Any]) -> Tuple[str, str, str]:
     """
     Best-effort parsing of a single location string.
+    Splits on commas only to preserve regions like "Île-de-France".
     """
     if value is None:
         return "", "", ""
@@ -120,8 +121,8 @@ def _parse_location_fallback(value: Optional[Any]) -> Tuple[str, str, str]:
     if not text:
         return "", "", ""
 
-    # Split on common separators
-    parts = [p.strip() for p in re.split(r"[,-/]", text) if p.strip()]
+    # Split on commas only
+    parts = [p.strip() for p in text.split(",") if p.strip()]
 
     if len(parts) == 2:
         return parts[0], "", parts[1]
