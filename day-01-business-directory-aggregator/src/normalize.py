@@ -1,46 +1,38 @@
 import re
-from typing import Any, Dict, Iterable, Optional
-
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 # --- input key aliases ---
-
-NAME_KEYS = [
-    "name",
-    "business_name",
-    "company",
-    "company_name",
-    "organization",
-]
-
-CATEGORY_KEYS = [
-    "category",
-    "categories",
-    "type",
-    "industry",
-    "sector",
-]
-
+NAME_KEYS = ["name", "business_name", "company", "company_name", "organization"]
+CATEGORY_KEYS = ["category", "categories", "type", "industry", "sector"]
 CITY_KEYS = ["city"]
 REGION_KEYS = ["region", "state", "province"]
 COUNTRY_KEYS = ["country"]
-
 LOCATION_FALLBACK_KEYS = ["location", "address"]
-
 WEBSITE_KEYS = ["website", "url", "homepage", "site", "web"]
 
-
 # --- category normalization ---
-
 CATEGORY_MAP = {
     "restaurants": "restaurant",
     "restaurant": "restaurant",
     "tech": "technology",
+    "technology": "technology",
     "it": "technology",
+    "software": "technology",
+    "cloud": "technology",
+    "retail": "retail",
+    "shop": "retail",
+    "store": "retail",
+    "market": "retail",
+    "health": "health",
+    "clinic": "health",
+    "hospital": "health",
+    "healthcare": "health",
+    "doctor": "health",
+    "dentist": "health",
+    "pharmacy": "health",
 }
 
-
 # --- public API ---
-
 def normalize_record(raw: Dict[str, Any]) -> Dict[str, str]:
     """
     Normalize a single raw business record into a flat, consistent schema.
@@ -68,9 +60,7 @@ def normalize_record(raw: Dict[str, Any]) -> Dict[str, str]:
         "website": website,
     }
 
-
 # --- helpers ---
-
 def _pick_first_value(raw: Dict[str, Any], keys: Iterable[str]) -> Optional[Any]:
     """
     Return the first non-empty value found for the given keys.
@@ -99,6 +89,9 @@ def _normalize_name(value: Optional[Any]) -> str:
 
 
 def _normalize_category(value: Optional[Any]) -> str:
+    """
+    Normalize categories using explicit mapping and light plural handling.
+    """
     if value is None:
         return ""
 
@@ -109,14 +102,14 @@ def _normalize_category(value: Optional[Any]) -> str:
     if not text:
         return ""
 
-    # light plural handling
-    if text.endswith("s"):
+    # Remove trailing 's' for simple plural handling
+    if text.endswith("s") and text not in CATEGORY_MAP:
         text = text[:-1]
 
     return CATEGORY_MAP.get(text, text)
 
 
-def _parse_location_fallback(value: Optional[Any]) -> tuple[str, str, str]:
+def _parse_location_fallback(value: Optional[Any]) -> Tuple[str, str, str]:
     """
     Best-effort parsing of a single location string.
     """
@@ -127,32 +120,40 @@ def _parse_location_fallback(value: Optional[Any]) -> tuple[str, str, str]:
     if not text:
         return "", "", ""
 
-    parts = [p.strip() for p in text.split(",") if p.strip()]
+    # Split on common separators
+    parts = [p.strip() for p in re.split(r"[,-/]", text) if p.strip()]
 
     if len(parts) == 2:
         return parts[0], "", parts[1]
-
-    if len(parts) >= 3:
+    elif len(parts) >= 3:
         return parts[0], parts[1], parts[-1]
 
     return "", "", ""
 
 
 def _normalize_website(value: Optional[Any]) -> str:
+    """
+    Normalize website URLs:
+    - strip whitespace
+    - lowercase
+    - add https:// if missing
+    - remove trailing slashes
+    - minimal sanity check
+    """
     if value is None:
         return ""
 
     text = _clean_string(value).lower()
-    if not text:
+    if not text or " " in text:
         return ""
 
-    if " " in text:
-        return ""
+    if not text.startswith(("http://", "https://")):
+        if "." in text:
+            text = f"https://{text}"
+        else:
+            return ""
 
-    if text.startswith("http://") or text.startswith("https://"):
-        return text
+    # Remove trailing slash
+    text = text.rstrip("/")
 
-    if "." in text:
-        return f"https://{text}"
-
-    return ""
+    return text

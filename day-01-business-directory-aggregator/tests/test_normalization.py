@@ -1,4 +1,4 @@
-from src.normalize import normalize_record
+from src.normalize import normalize_record, _normalize_website
 
 
 def test_basic_record_normalization():
@@ -80,3 +80,31 @@ def test_structured_location_takes_precedence():
 
     assert result["city"] == "London"
     assert result["country"] == "UK"
+
+
+# --- New edge case tests ---
+
+def test_empty_input_row():
+    raw = {}
+    result = normalize_record(raw)
+    assert result == {
+        "name": "",
+        "category": "",
+        "city": "",
+        "region": "",
+        "country": "",
+        "website": "",
+    }
+
+
+def test_website_edge_cases():
+    test_cases = [
+        ("example.com", "https://example.com"),
+        (" http://foo.org ", "http://foo.org"),
+        ("www.bar.net/", "https://www.bar.net"),
+        ("bad website", ""),
+        ("", ""),
+    ]
+    for input_url, expected in test_cases:
+        result = _normalize_website(input_url)
+        assert result == expected
