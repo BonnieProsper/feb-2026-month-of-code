@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Green Garden",
+    "category": "Restaurants",
+    "city": "Paris",
+    "country": "France",
+    "homepage": "greengarden.fr"
+  },
+  {
+    "company": "Data Works",
+    "sector": "Technology",
+    "address": "London, UK",
+    "url": "https://dataworks.co.uk"
+  },
+  {
+    "organization": "Mystery Co",
+    "location": "Unknown",
+    "website": ""
+  }
+]
