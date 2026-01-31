@@ -42,7 +42,6 @@ CATEGORY_MAP = {
     "pub": "restaurant",
 }
 
-
 # --- public API ---
 def normalize_record(raw: Dict[str, Any]) -> Dict[str, str]:
     """
@@ -71,17 +70,19 @@ def normalize_record(raw: Dict[str, Any]) -> Dict[str, str]:
         "website": website,
     }
 
-
 # --- helpers ---
+def extend_category_map(new_map: Dict[str, str]) -> None:
+    """
+    Extend CATEGORY_MAP with a dict of lowercase key -> lowercase value.
+    """
+    CATEGORY_MAP.update({k.lower(): v.lower() for k, v in new_map.items()})
+
 def _pick_first_value(raw: Dict[str, Any], keys: Iterable[str]) -> Optional[Any]:
-    """
-    Return the first non-empty value found for the given keys.
-    """
+    """Return the first non-empty value found for the given keys."""
     for key in keys:
         if key in raw and raw[key] not in (None, ""):
             return raw[key]
     return None
-
 
 def _clean_string(value: Optional[Any]) -> str:
     if value is None:
@@ -91,14 +92,11 @@ def _clean_string(value: Optional[Any]) -> str:
         return ""
     return _collapse_whitespace(text)
 
-
 def _collapse_whitespace(text: str) -> str:
     return re.sub(r"\s+", " ", text)
 
-
 def _normalize_name(value: Optional[Any]) -> str:
     return _clean_string(value)
-
 
 def _normalize_category(value: Optional[Any]) -> str:
     """
@@ -120,7 +118,6 @@ def _normalize_category(value: Optional[Any]) -> str:
 
     return CATEGORY_MAP.get(text, text)
 
-
 def _parse_location_fallback(value: Optional[Any]) -> Tuple[str, str, str]:
     """
     Best-effort parsing of a single location string.
@@ -134,7 +131,6 @@ def _parse_location_fallback(value: Optional[Any]) -> Tuple[str, str, str]:
     if not text:
         return "", "", ""
 
-    # Split on commas only
     parts = [p.strip() for p in text.split(",") if p.strip()]
 
     if len(parts) == 2:
@@ -143,7 +139,6 @@ def _parse_location_fallback(value: Optional[Any]) -> Tuple[str, str, str]:
         return parts[0], parts[1], parts[-1]
 
     return "", "", ""
-
 
 def _normalize_website(value: Optional[Any]) -> str:
     """
@@ -168,10 +163,7 @@ def _normalize_website(value: Optional[Any]) -> str:
         else:
             return ""
 
-    # Remove trailing slash
     text = text.rstrip("/")
-
-    # Remove www. prefix
     text = re.sub(r"^https?://www\.", lambda m: "https://", text)
 
     return text
