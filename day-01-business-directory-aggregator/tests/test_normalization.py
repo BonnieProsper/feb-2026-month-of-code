@@ -101,7 +101,8 @@ def test_website_edge_cases():
     test_cases = [
         ("example.com", "https://example.com"),
         (" http://foo.org ", "http://foo.org"),
-        ("www.bar.net/", "https://www.bar.net"),
+        ("www.bar.net/", "https://bar.net"),
+        ("https://www.test.org/", "https://test.org"),
         ("bad website", ""),
         ("", ""),
     ]

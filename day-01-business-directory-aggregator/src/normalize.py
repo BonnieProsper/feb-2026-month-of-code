@@ -30,7 +30,18 @@ CATEGORY_MAP = {
     "doctor": "health",
     "dentist": "health",
     "pharmacy": "health",
+    "education": "education",
+    "school": "education",
+    "university": "education",
+    "finance": "finance",
+    "bank": "finance",
+    "insurance": "finance",
+    "entertainment": "entertainment",
+    "bar": "restaurant",
+    "cafe": "restaurant",
+    "pub": "restaurant",
 }
+
 
 # --- public API ---
 def normalize_record(raw: Dict[str, Any]) -> Dict[str, str]:
@@ -59,6 +70,7 @@ def normalize_record(raw: Dict[str, Any]) -> Dict[str, str]:
         "country": country,
         "website": website,
     }
+
 
 # --- helpers ---
 def _pick_first_value(raw: Dict[str, Any], keys: Iterable[str]) -> Optional[Any]:
@@ -102,7 +114,7 @@ def _normalize_category(value: Optional[Any]) -> str:
     if not text:
         return ""
 
-    # Remove trailing 's' for simple plural handling
+    # Remove trailing 's' for simple plural handling if not mapped
     if text.endswith("s") and text not in CATEGORY_MAP:
         text = text[:-1]
 
@@ -113,6 +125,7 @@ def _parse_location_fallback(value: Optional[Any]) -> Tuple[str, str, str]:
     """
     Best-effort parsing of a single location string.
     Splits on commas only to preserve regions like "Île-de-France".
+    Returns (city, region, country)
     """
     if value is None:
         return "", "", ""
@@ -139,6 +152,7 @@ def _normalize_website(value: Optional[Any]) -> str:
     - lowercase
     - add https:// if missing
     - remove trailing slashes
+    - remove www. prefix for consistency
     - minimal sanity check
     """
     if value is None:
@@ -156,5 +170,8 @@ def _normalize_website(value: Optional[Any]) -> str:
 
     # Remove trailing slash
     text = text.rstrip("/")
+
+    # Remove www. prefix
+    text = re.sub(r"^https?://www\.", lambda m: "https://", text)
 
     return text

@@ -4,6 +4,10 @@ from typing import List, Dict
 
 
 def read_csv(path: str) -> List[Dict]:
+    """
+    Reads a CSV file and returns a list of dictionaries.
+    Drops rows that are completely empty.
+    """
     rows: List[Dict] = []
 
     with open(path, newline="", encoding="utf-8") as f:
@@ -13,8 +17,8 @@ def read_csv(path: str) -> List[Dict]:
             if not row:
                 continue
 
-            # drop rows that are completely empty
-            if all(value in (None, "", " ") for value in row.values()):
+            # drop rows where all values are empty or whitespace
+            if all(value in (None, "", " ") or str(value).strip() == "" for value in row.values()):
                 continue
 
             rows.append(row)
@@ -23,6 +27,10 @@ def read_csv(path: str) -> List[Dict]:
 
 
 def read_json(path: str) -> List[Dict]:
+    """
+    Reads a JSON file (must be a list of objects) and returns a list of dictionaries.
+    Skips non-dict entries.
+    """
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
 
@@ -40,7 +48,16 @@ def read_json(path: str) -> List[Dict]:
 
 
 def write_csv(path: str, rows: List[Dict]) -> None:
+    """
+    Writes a list of dictionaries to a CSV file.
+    Uses the keys of the first row as fieldnames.
+    Fills missing fields with empty strings.
+    """
     if not rows:
+        # write empty file with headers
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["name", "category", "city", "region", "country", "website"])
         return
 
     fieldnames = list(rows[0].keys())
