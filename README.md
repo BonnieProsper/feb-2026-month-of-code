@@ -1,29 +1,26 @@
 # February of Code
 
-A one‑month build challenge focused on shipping small, real products.
-Throughout February, I build one scoped project per day. Each project is designed to:
+A one-month challenge focused on shipping small, real-world projects. One project per day, each designed to:
 
-* solve a real, concrete problem
+* solve a concrete problem
 * exercise a specific engineering skill
-* be finished, documented, and reviewed the same day
+* be completed and documented in a single day
 
 ---
 
-## Why this exists
+## Purpose
 
-Most “X days of code” challenges optimize for streaks and screenshots. This one optimizes for **engineering judgment**.
+Unlike typical "X days of code" challenges, this focuses on engineering judgment. Each project has:
 
-Every project here:
+* a defined user or purpose
+* clear constraints and tradeoffs
+* deliberate scope limits to avoid over-engineering
 
-* has a clearly defined user
-* makes explicit tradeoffs
-* stops deliberately short of over‑engineering
-
-The constraint of one day forces hard decisions.
+The one-day constraint enforces realistic decision-making and shipping discipline.
 
 ---
 
-## How to read this repo
+## Repository Structure
 
 Each project lives in its own folder:
 
@@ -33,42 +30,63 @@ Each project lives in its own folder:
 ...
 ```
 
-Inside each folder you’ll typically find:
+Each folder typically contains:
 
-* `README.md` - problem definition, approach, tradeoffs
+* `README.md` - problem description, approach, tradeoffs
 * `src/` - implementation
-* `tests/` - lightweight tests where appropriate
-* `data/` - sample inputs/outputs (small and local)
+* `tests/` - lightweight tests where relevant
+* `data/` - sample inputs/outputs
 
-Projects are intentionally self‑contained. There is no shared framework or monorepo abstraction, a deliberate choice to keep scope tight and reasoning clear.
+Projects are self-contained. No shared framework is used, keeping each project simple and clear.
 
-### Honest tradeoffs
+### Tradeoffs and Limitations
 
-Every README includes a short section on:
+Every project README includes a section for:
 
 * known limitations
-* what I’d change with more time
+* possible improvements with more time
 
 ---
 
-## What this repo is *not*
+## Tech Stack
 
-* a production‑ready codebase
-* a framework
-* a collection of polished SaaS products
-
-Each project is a finished slice, not a startup.
-
-Some projects may later be expanded into dedicated repos. When that happens, this repo remains as the original, time‑boxed version as a record of the initial design decisions.
+* **Language:** Python
+* **Storage:** CSV, SQLite, or other simple formats
+* **Libraries:** minimal, standard library preferred unless external libraries are justified
 
 ---
 
-## Tech choices
+## Projects
 
-* Language: Python (chosen for speed, clarity, and ecosystem)
-* Tooling: minimal by design
-* Storage: simple formats unless complexity is justified
+| Day | Project                              |
+| --- | ------------------------------------ |
+| 01  | Public Business Directory Aggregator |
+| 02  | Broken Link Checker (CLI)            |
+| 03  | Invoice Generator (PDF)              |
+| 04  | Cold Email Personalization Engine    |
+| 05  | Competitor Price Tracker             |
+| 06  | Email Deliverability Analyzer        |
+| 07  | Contact Form Auto-Responder API      |
+| 08  | YouTube Transcript → Action Summary  |
+| 09  | Real Estate Listing Copy Generator   |
+| 10  | Resume ↔ Job Description Matcher     |
+| 11  | FAQ-Bound Support Bot                |
+| 12  | Decision Log / Audit Trail System    |
+| 13  | Config-Driven Web Scraper            |
+| 14  | Rate Limiting & Retry Middleware     |
+| 15  | Crypto Arbitrage Notifier            |
+| 16  | Personal Finance Analyzer            |
+| 17  | Stock News Sentiment Tracker         |
+| 18  | Website Uptime Monitor               |
+| 19  | Freelancer Tax Estimator             |
+| 20  | GitHub Repo Health Checker           |
+| 21  | PDF Invoice → JSON Extractor         |
+| 22  | Niche Keyword Discovery Tool         |
+| 23  | Local Encrypted Password Vault (CLI) |
+| 24  | Bulk Image Optimizer                 |
+| 25  | Automated Cloud Backup Script        |
+| 26  | PDF Watermarker                      |
+| 27  | Repo-Wide Metrics Dashboard          |
+| 28  | Wrap-Up & Index                      |
 
-Libraries are used pragmatically. If the standard library is sufficient, it’s preferred.
-
-
+Look at each individual projects README for further information on each project.
