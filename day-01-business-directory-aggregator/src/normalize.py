@@ -1,5 +1,6 @@
 import re
 from typing import Any, Dict, Iterable, Optional, Tuple
+from rapidfuzz import fuzz
 
 # --- input key aliases ---
 NAME_KEYS = ["name", "business_name", "company", "company_name", "organization"]
@@ -49,7 +50,6 @@ def normalize_record(raw: Dict[str, Any]) -> Dict[str, str]:
     """
     name = _normalize_name(_pick_first_value(raw, NAME_KEYS))
     category = _normalize_category(_pick_first_value(raw, CATEGORY_KEYS))
-
     city = _clean_string(_pick_first_value(raw, CITY_KEYS))
     region = _clean_string(_pick_first_value(raw, REGION_KEYS))
     country = _clean_string(_pick_first_value(raw, COUNTRY_KEYS))
@@ -78,7 +78,6 @@ def extend_category_map(new_map: Dict[str, str]) -> None:
     CATEGORY_MAP.update({k.lower(): v.lower() for k, v in new_map.items()})
 
 def _pick_first_value(raw: Dict[str, Any], keys: Iterable[str]) -> Optional[Any]:
-    """Return the first non-empty value found for the given keys."""
     for key in keys:
         if key in raw and raw[key] not in (None, ""):
             return raw[key]
@@ -88,9 +87,7 @@ def _clean_string(value: Optional[Any]) -> str:
     if value is None:
         return ""
     text = str(value).strip()
-    if not text:
-        return ""
-    return _collapse_whitespace(text)
+    return _collapse_whitespace(text) if text else ""
 
 def _collapse_whitespace(text: str) -> str:
     return re.sub(r"\s+", " ", text)
@@ -99,71 +96,53 @@ def _normalize_name(value: Optional[Any]) -> str:
     return _clean_string(value)
 
 def _normalize_category(value: Optional[Any]) -> str:
-    """
-    Normalize categories using explicit mapping and light plural handling.
-    """
     if value is None:
         return ""
-
     if isinstance(value, list) and value:
         value = value[0]
-
     text = _clean_string(value).lower()
     if not text:
         return ""
-
-    # Remove trailing 's' for simple plural handling if not mapped
     if text.endswith("s") and text not in CATEGORY_MAP:
         text = text[:-1]
-
     return CATEGORY_MAP.get(text, text)
 
 def _parse_location_fallback(value: Optional[Any]) -> Tuple[str, str, str]:
-    """
-    Best-effort parsing of a single location string.
-    Splits on commas only to preserve regions like "Île-de-France".
-    Returns (city, region, country)
-    """
     if value is None:
         return "", "", ""
-
     text = _clean_string(value)
     if not text:
         return "", "", ""
-
     parts = [p.strip() for p in text.split(",") if p.strip()]
-
     if len(parts) == 2:
         return parts[0], "", parts[1]
     elif len(parts) >= 3:
         return parts[0], parts[1], parts[-1]
-
     return "", "", ""
 
 def _normalize_website(value: Optional[Any]) -> str:
-    """
-    Normalize website URLs:
-    - strip whitespace
-    - lowercase
-    - add https:// if missing
-    - remove trailing slashes
-    - remove www. prefix for consistency
-    - minimal sanity check
-    """
     if value is None:
         return ""
-
     text = _clean_string(value).lower()
     if not text or " " in text:
         return ""
-
     if not text.startswith(("http://", "https://")):
         if "." in text:
             text = f"https://{text}"
         else:
             return ""
-
     text = text.rstrip("/")
     text = re.sub(r"^https?://www\.", lambda m: "https://", text)
-
     return text
+
+def is_duplicate(existing_rows: list, new_row: dict, threshold=90) -> bool:
+    """
+    Determine if a new row is a duplicate of any existing row.
+    Combines exact website match and fuzzy name similarity.
+    """
+    for row in existing_rows:
+        if row.get("website") and new_row.get("website") and row["website"] == new_row["website"]:
+            return True
+        if fuzz.ratio(row.get("name", "").lower(), new_row.get("name", "").lower()) >= threshold:
+            return True
+    return False

@@ -1,18 +1,20 @@
 from pathlib import Path
 import argparse
 import json
+import csv
+import time
 from collections import Counter
 from typing import List, Dict, Optional
 
-from file_io import read_csv, read_json, write_csv
-from normalize import normalize_record, CATEGORY_MAP
+from file_io import read_csv_stream, read_json_stream, write_csv
+from normalize import normalize_record, CATEGORY_MAP, is_duplicate
+from enrich import geocode_address
 
-MANDATORY_COLUMNS = ["name", "category", "city", "region", "country", "website"]
-
+MANDATORY_COLUMNS = ["name", "category", "city", "region", "country", "website", "lat", "lon"]
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Normalize public business directory CSV/JSON datasets."
+        description="Normalize public business directory CSV/JSON datasets with optional enrichment and deduplication."
     )
     parser.add_argument("input_file", help="Path to input CSV or JSON file")
     parser.add_argument("output_file", help="Path to output CSV file")
@@ -25,17 +27,22 @@ def main() -> None:
         "--min-fields",
         type=int,
         default=0,
-        help="Optional: skip rows with fewer than N non-empty fields",
+        help="Skip rows with fewer than N non-empty mandatory fields",
     )
     parser.add_argument(
         "--deduplicate",
         action="store_true",
-        help="Optional: remove duplicate rows based on (name + website)",
+        help="Remove duplicate rows based on exact website or fuzzy name match",
+    )
+    parser.add_argument(
+        "--geocode",
+        action="store_true",
+        help="Optionally enrich rows with latitude and longitude using city, region, country",
     )
     parser.add_argument(
         "--report",
         type=str,
-        help="Optional: output CSV or JSON summary of missing fields per column",
+        help="Optional: output CSV or JSON summary of missing fields and skipped rows",
     )
     parser.add_argument(
         "--category-map",
@@ -50,7 +57,7 @@ def main() -> None:
     if not input_path.exists():
         raise SystemExit(f"Input file does not exist: {input_path}")
 
-    # Load external category mapping if provided
+    # Load external category mapping
     if args.category_map:
         category_path = Path(args.category_map)
         if not category_path.exists():
@@ -63,47 +70,60 @@ def main() -> None:
         except Exception as e:
             raise SystemExit(f"Failed to load category mapping: {e}")
 
-    # Read input
+    # Choose streaming reader
     if input_path.suffix.lower() == ".csv":
-        raw_rows = read_csv(str(input_path))
+        raw_rows_gen = read_csv_stream(str(input_path))
     elif input_path.suffix.lower() == ".json":
-        raw_rows = read_json(str(input_path))
+        raw_rows_gen = read_json_stream(str(input_path))
     else:
         raise SystemExit("Input file must be a CSV or JSON file")
 
-    # Normalize rows
     normalized_rows: List[Dict[str, str]] = []
-    skipped_rows = 0
-    for row in raw_rows:
+    skipped_rows_info = []  # List of dicts with reason for skipping
+    existing_rows: List[Dict[str, str]] = []
+
+    invalid_website_count = 0
+    geocode_success_count = 0
+
+    for row in raw_rows_gen:
+        reason = None
         if not isinstance(row, dict):
-            skipped_rows += 1
-            continue
-        normalized = normalize_record(row)
+            reason = "invalid_row"
+        else:
+            normalized = normalize_record(row)
+            # Apply min-fields filter
+            non_empty_count = sum(1 for c in MANDATORY_COLUMNS if normalized.get(c))
+            if non_empty_count < args.min_fields:
+                reason = f"min_fields<{args.min_fields}"
+            # Deduplication
+            elif args.deduplicate and is_duplicate(existing_rows, normalized):
+                reason = "duplicate"
+            else:
+                # Optional geocoding
+                if args.geocode:
+                    coords = geocode_address(normalized["city"], normalized["region"], normalized["country"])
+                    if coords:
+                        normalized.update(coords)
+                        geocode_success_count += 1
+                    else:
+                        normalized.update({"lat": "", "lon": ""})
+                        time.sleep(1)  # Respect rate limit
 
-        # Apply min-fields filter
-        non_empty_count = sum(1 for c in MANDATORY_COLUMNS if normalized.get(c))
-        if non_empty_count < args.min_fields:
-            skipped_rows += 1
-            continue
+                # Track invalid website
+                if not normalized.get("website"):
+                    invalid_website_count += 1
 
-        normalized_rows.append(normalized)
+                normalized_rows.append(normalized)
+                existing_rows.append(normalized)
 
-    # Deduplicate if requested
-    if args.deduplicate:
-        seen = set()
-        deduped_rows = []
-        for row in normalized_rows:
-            key = (row["name"].lower(), row["website"].lower())
-            if key not in seen:
-                seen.add(key)
-                deduped_rows.append(row)
-        normalized_rows = deduped_rows
+        if reason:
+            skipped_rows_info.append({"row": row, "reason": reason})
 
     # Optional sorting
     if args.sort == "name":
         normalized_rows.sort(key=lambda r: r["name"].lower())
 
-    # Write output
+    # Write output CSV
     write_csv(str(output_path), normalized_rows, fieldnames=MANDATORY_COLUMNS)
 
     # Data quality summary
@@ -114,17 +134,23 @@ def main() -> None:
                 missing_counts[col] += 1
 
     print(f"Normalized {len(normalized_rows)} rows → {output_path}")
-    if skipped_rows:
-        print(f"Skipped {skipped_rows} invalid or incomplete rows")
+    if skipped_rows_info:
+        print(f"Skipped {len(skipped_rows_info)} rows:")
+        reasons_counter = Counter(r["reason"] for r in skipped_rows_info)
+        for reason, count in reasons_counter.items():
+            print(f"  {reason}: {count}")
+
     if missing_counts:
         print("Missing fields summary:")
         for col, count in missing_counts.items():
             if count:
                 print(f"  {col}: {count}")
-    if args.deduplicate:
-        print(f"Duplicates removed: {len(raw_rows) - len(normalized_rows) - skipped_rows}")
 
-    # Interactive summary: top categories and cities
+    print(f"Invalid/missing websites: {invalid_website_count}")
+    if args.geocode:
+        print(f"Successfully geocoded rows: {geocode_success_count}")
+
+    # Interactive top categories/cities
     categories_counter = Counter(row["category"] for row in normalized_rows if row["category"])
     cities_counter = Counter(row["city"] for row in normalized_rows if row["city"])
 
@@ -138,23 +164,26 @@ def main() -> None:
         for city, count in cities_counter.most_common(5):
             print(f"  {city}: {count}")
 
-    # Optional report
+    # Optional report output
     if args.report:
         report_path = Path(args.report)
-        report_data = {col: missing_counts.get(col, 0) for col in MANDATORY_COLUMNS}
+        report_data = {
+            "missing_fields": {col: missing_counts.get(col, 0) for col in MANDATORY_COLUMNS},
+            "skipped_rows": reasons_counter,
+            "invalid_websites": invalid_website_count,
+            "geocode_success": geocode_success_count,
+        }
         try:
             if report_path.suffix.lower() == ".json":
                 with open(report_path, "w", encoding="utf-8") as f:
                     json.dump(report_data, f, indent=2)
             else:
-                # Default to CSV
+                # Write CSV report
                 with open(report_path, "w", encoding="utf-8", newline="") as f:
-                    import csv
-
                     writer = csv.writer(f)
-                    writer.writerow(["column", "missing_count"])
-                    for col, count in report_data.items():
-                        writer.writerow([col, count])
+                    writer.writerow(["metric", "value"])
+                    for key, val in report_data.items():
+                        writer.writerow([key, val])
             print(f"\nData quality report written to {report_path}")
         except Exception as e:
             print(f"Failed to write report: {e}")
