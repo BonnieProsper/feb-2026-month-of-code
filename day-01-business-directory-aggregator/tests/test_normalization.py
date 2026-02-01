@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from src.normalize import normalize_record, _normalize_website, extend_category_map
+from src.normalize import normalize_record, _normalize_website, extend_category_map, is_duplicate
 
 def test_basic_record_normalization():
     raw = {
@@ -89,16 +89,20 @@ def test_min_fields_filtering(monkeypatch):
     non_empty_count = sum(1 for c in ["name", "category", "city", "region", "country", "website"] if result.get(c))
     assert non_empty_count == 1
 
+
 def test_deduplication_logic():
-    rows = [
-        {"name": "A", "website": "site.com", "category": "tech", "city": "X", "region": "", "country": "Y"},
-        {"name": "A", "website": "site.com", "category": "tech", "city": "X", "region": "", "country": "Y"},
-    ]
-    seen = set()
-    deduped_rows = []
-    for row in rows:
-        key = (row["name"].lower(), row["website"].lower())
-        if key not in seen:
-            seen.add(key)
-            deduped_rows.append(row)
-    assert len(deduped_rows) == 1
+    rows = []
+
+    row1 = {
+        "name": "A",
+        "website": "site.com",
+        "category": "tech",
+        "city": "X",
+        "region": "",
+        "country": "Y",
+    }
+
+    row2 = row1.copy()
+
+    rows.append(row1)
+    assert is_duplicate(rows, row2) is True

@@ -1,247 +1,275 @@
-from pathlib import Path
+"""
+Main entry point for the Business Directory Aggregator.
+
+Responsibilities:
+- Stream CSV/JSON input
+- Normalize raw records into a clean canonical schema
+- Optionally deduplicate records
+- Apply enrichment plugins (auto-discovered + configurable)
+- Dynamically adapt output schema based on enrichments
+- Emit a clean CSV plus optional quality report
+"""
+
+from __future__ import annotations
+
 import argparse
 import json
-import csv
+import sys
 import time
-from collections import Counter
-from typing import List, Dict, Optional, Callable, Set
+from pathlib import Path
+from collections import Counter, defaultdict
+from typing import Dict, Iterable, List, Set, Mapping, Optional
 
-from file_io import read_csv_stream, read_json_stream, write_csv
-from normalize import normalize_record, CATEGORY_MAP, is_duplicate
-from enrich import geocode_address, scrape_website_title
+from src.file_io import read_csv_stream, read_json_stream, write_csv
+from src.normalize import normalize_record, CATEGORY_MAP, is_duplicate
+from src.enrich.registry import load_plugins, discover_plugins
 
-# Core mandatory fields
+
+# Core schema — guaranteed columns in every output file
 CORE_COLUMNS = ["name", "category", "city", "region", "country", "website"]
 
-# Type for enrichment plugin
-EnrichmentPlugin = Callable[[Dict[str, str]], Dict[str, str]]
+
+def _load_category_map(path: Path) -> None:
+    """
+    Extend the built-in CATEGORY_MAP from an external JSON file.
+    External mappings override internal ones.
+    """
+    if not path.exists():
+        raise SystemExit(f"Category map file does not exist: {path}")
+
+    try:
+        with path.open(encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:
+        raise SystemExit(f"Failed to read category map: {exc}")
+
+    if not isinstance(data, dict):
+        raise SystemExit("Category map must be a JSON object")
+
+    CATEGORY_MAP.update({str(k).lower(): str(v).lower() for k, v in data.items()})
+
+
+def _iter_rows(input_path: Path):
+    """Yield raw rows from CSV or JSON input."""
+    suffix = input_path.suffix.lower()
+
+    if suffix == ".csv":
+        return read_csv_stream(str(input_path))
+    if suffix == ".json":
+        return read_json_stream(str(input_path))
+
+    raise SystemExit("Input file must be .csv or .json")
+
+
+def _apply_plugins_sequential(
+    *,
+    row: Dict[str, str],
+    plugins: Iterable[object],
+    timing: Dict[str, float],
+    failures: Counter,
+    enrichment_columns: Set[str],
+) -> None:
+    """
+    Apply enrichment plugins sequentially to a single row.
+
+    Plugins are expected to expose:
+      - name: str
+      - enrich(row: Dict[str, str]) -> Optional[Mapping[str, str]]
+
+    This function is intentionally defensive: plugin output is validated
+    at runtime so one bad plugin cannot corrupt the pipeline.
+    """
+    for plugin in plugins:
+        enrich_fn = getattr(plugin, "enrich", None)
+        if not callable(enrich_fn):
+            continue
+
+        plugin_name = getattr(plugin, "name", "<unknown>")
+
+        start = time.perf_counter()
+        try:
+            result = enrich_fn(row)
+        except Exception:
+            failures[plugin_name] += 1
+            continue
+        finally:
+            timing[plugin_name] += time.perf_counter() - start
+
+        if not result:
+            continue
+
+        if not isinstance(result, Mapping):
+            failures[plugin_name] += 1
+            continue
+
+        # Narrowed type: Mapping[str, str]
+        clean: Dict[str, str] = {
+            str(k): str(v)
+            for k, v in result.items()
+            if v is not None
+        }
+
+        if not clean:
+            continue
+
+        row.update(clean)
+        enrichment_columns.update(clean.keys())
 
 
 def main() -> None:
-    """
-    Main entry point for normalizing business datasets.
-    Features:
-        - Streaming CSV/JSON input
-        - Deduplication (exact + fuzzy)
-        - Plugin-style enrichment (auto-detects extra fields)
-        - Optional geocoding
-        - Optional website scraping
-        - Dynamic CSV output with all enrichment fields
-        - Full reporting and top category/city summaries
-    """
     parser = argparse.ArgumentParser(
-        description="Normalize business directory datasets with dynamic enrichment."
-    )
-    parser.add_argument("input_file", help="Path to input CSV or JSON file")
-    parser.add_argument("output_file", help="Path to output CSV file")
-    parser.add_argument(
-        "--sort", choices=["name"], help="Optional: sort output by the given field"
-    )
-    parser.add_argument(
-        "--min-fields",
-        type=int,
-        default=0,
-        help="Skip rows with fewer than N non-empty mandatory fields",
-    )
-    parser.add_argument(
-        "--deduplicate",
-        action="store_true",
-        help="Remove duplicate rows (exact website or fuzzy name match)",
-    )
-    parser.add_argument(
-        "--geocode", action="store_true", help="Enrich rows with latitude/longitude"
-    )
-    parser.add_argument(
-        "--scrape",
-        action="store_true",
-        help="Enrich rows by scraping website titles",
-    )
-    parser.add_argument(
-        "--report",
-        type=str,
-        help="Output CSV or JSON summary of missing fields and skipped rows",
-    )
-    parser.add_argument(
-        "--category-map",
-        type=str,
-        help="Optional path to external JSON to extend category mapping",
+        description="Normalize and enrich business directory datasets."
     )
 
+    # Positional arguments
+    parser.add_argument("input_file", nargs="?", help="Input CSV or JSON file")
+    parser.add_argument("output_file", nargs="?", help="Output CSV file")
+
+    # Core processing options
+    parser.add_argument("--min-fields", type=int, default=0)
+    parser.add_argument("--deduplicate", action="store_true")
+    parser.add_argument("--sort", choices=["name"])
+
+    # Enrichment system
+    parser.add_argument(
+        "--enable-plugin",
+        action="append",
+        default=[],
+        help="Enable enrichment plugin by name (repeatable)",
+    )
+    parser.add_argument(
+        "--list-plugins",
+        action="store_true",
+        help="List available enrichment plugins and exit",
+    )
+
+    # Execution behavior
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Process input and show output schema without writing CSV",
+    )
+
+    # Optional extensions
+    parser.add_argument("--category-map", help="Path to JSON category mapping")
+    parser.add_argument("--report", help="Write a JSON quality report")
+
     args = parser.parse_args()
+
+    # Plugin discovery mode
+    if args.list_plugins:
+        plugins = discover_plugins()
+        print("Available enrichment plugins:")
+        for name in sorted(plugins):
+            print(f"- {name}")
+        sys.exit(0)
+
+    if not args.input_file or not args.output_file:
+        parser.error("input_file and output_file are required unless --list-plugins")
+
     input_path = Path(args.input_file)
     output_path = Path(args.output_file)
 
     if not input_path.exists():
         raise SystemExit(f"Input file does not exist: {input_path}")
 
-    # Load external category mapping
     if args.category_map:
-        category_path = Path(args.category_map)
-        if not category_path.exists():
-            raise SystemExit(f"Category mapping file does not exist: {category_path}")
-        try:
-            with open(category_path, encoding="utf-8") as f:
-                external_map = json.load(f)
-            if isinstance(external_map, dict):
-                CATEGORY_MAP.update({k.lower(): v.lower() for k, v in external_map.items()})
-        except Exception as e:
-            raise SystemExit(f"Failed to load category mapping: {e}")
+        _load_category_map(Path(args.category_map))
 
-    # Determine streaming reader
-    if input_path.suffix.lower() == ".csv":
-        raw_rows_gen = read_csv_stream(str(input_path))
-    elif input_path.suffix.lower() == ".json":
-        raw_rows_gen = read_json_stream(str(input_path))
-    else:
-        raise SystemExit("Input file must be CSV or JSON")
+    plugins = load_plugins(args.enable_plugin)
 
-    # Enrichment plugins list
-    enrichment_plugins: List[EnrichmentPlugin] = []
-    if args.geocode:
-        enrichment_plugins.append(geocode_row)
-    if args.scrape:
-        enrichment_plugins.append(scrape_row)
+    unknown = set(args.enable_plugin) - set(plugins.keys())
+    if unknown:
+        print(f"Warning: unknown plugins ignored: {', '.join(sorted(unknown))}")
+
+    rows = _iter_rows(input_path)
 
     normalized_rows: List[Dict[str, str]] = []
-    skipped_rows_info = []
-    existing_rows: List[Dict[str, str]] = []
-
-    invalid_website_count = 0
-    geocode_success_count = 0
-    scrape_success_count = 0
-
-    # Track dynamic enrichment columns
     enrichment_columns: Set[str] = set()
+    skipped = Counter()
 
-    # Process each row
-    for raw_row in raw_rows_gen:
-        reason = None
-        if not isinstance(raw_row, dict):
-            reason = "invalid_row"
-        else:
-            normalized = normalize_record(raw_row)
+    plugin_timing: Dict[str, float] = defaultdict(float)
+    plugin_failures = Counter()
 
-            # Apply min-fields filter
-            non_empty_count = sum(1 for c in CORE_COLUMNS if normalized.get(c))
-            if non_empty_count < args.min_fields:
-                reason = f"min_fields<{args.min_fields}"
+    for raw in rows:
+        if not isinstance(raw, dict):
+            skipped["invalid_row"] += 1
+            continue
 
-            # Deduplication
-            elif args.deduplicate and is_duplicate(existing_rows, normalized):
-                reason = "duplicate"
-            else:
-                # Apply enrichment plugins
-                for plugin in enrichment_plugins:
-                    result = plugin(normalized)
-                    if result:
-                        normalized.update(result)
-                        enrichment_columns.update(result.keys())
+        row = normalize_record(raw)
 
-                # Track enrichment counts
-                if args.geocode and normalized.get("lat") and normalized.get("lon"):
-                    geocode_success_count += 1
-                if args.scrape and normalized.get("title"):
-                    scrape_success_count += 1
+        filled = sum(bool(row.get(col)) for col in CORE_COLUMNS)
+        if filled < args.min_fields:
+            skipped["min_fields"] += 1
+            continue
 
-                # Track invalid website
-                if not normalized.get("website"):
-                    invalid_website_count += 1
+        if args.deduplicate and is_duplicate(normalized_rows, row):
+            skipped["duplicate"] += 1
+            continue
 
-                normalized_rows.append(normalized)
-                existing_rows.append(normalized)
+        _apply_plugins_sequential(
+            row=row,
+            plugins=plugins.values(),
+            timing=plugin_timing,
+            failures=plugin_failures,
+            enrichment_columns=enrichment_columns,
+        )
 
-        if reason:
-            skipped_rows_info.append({"row": raw_row, "reason": reason})
+        normalized_rows.append(row)
 
-    # Optional sorting
     if args.sort == "name":
-        normalized_rows.sort(key=lambda r: r["name"].lower())
+        normalized_rows.sort(key=lambda r: r.get("name", "").lower())
 
-    # Dynamically determine all columns for CSV output
     all_columns = CORE_COLUMNS + sorted(enrichment_columns)
 
-    # Write normalized output
-    write_csv(str(output_path), normalized_rows, fieldnames=all_columns)
-
-    # Generate data quality summary
-    missing_counts = Counter()
-    for row in normalized_rows:
+    if args.dry_run:
+        print("Dry run complete.")
+        print(f"Rows that would be written: {len(normalized_rows)}")
+        print("Output columns:")
         for col in all_columns:
-            if not row.get(col):
-                missing_counts[col] += 1
+            print(f"- {col}")
+        sys.exit(0)
+
+    write_csv(
+        str(output_path),
+        normalized_rows,
+        fieldnames=all_columns,
+    )
 
     print(f"Normalized {len(normalized_rows)} rows → {output_path}")
-    if skipped_rows_info:
-        print(f"Skipped {len(skipped_rows_info)} rows:")
-        reasons_counter = Counter(r["reason"] for r in skipped_rows_info)
-        for reason, count in reasons_counter.items():
+
+    if skipped:
+        print("Skipped rows:")
+        for reason, count in skipped.items():
             print(f"  {reason}: {count}")
 
-    if missing_counts:
-        print("Missing fields summary:")
-        for col, count in missing_counts.items():
-            if count:
-                print(f"  {col}: {count}")
+    if plugin_timing:
+        print("Plugin execution time (seconds):")
+        for name, seconds in plugin_timing.items():
+            print(f"  {name}: {seconds:.3f}")
 
-    print(f"Invalid/missing websites: {invalid_website_count}")
-    if args.geocode:
-        print(f"Successfully geocoded rows: {geocode_success_count}")
-    if args.scrape:
-        print(f"Successfully scraped website titles: {scrape_success_count}")
+    if plugin_failures:
+        print("Plugin failures:")
+        for name, count in plugin_failures.items():
+            print(f"  {name}: {count}")
 
-    # Top categories / cities
-    categories_counter = Counter(r["category"] for r in normalized_rows if r.get("category"))
-    cities_counter = Counter(r["city"] for r in normalized_rows if r.get("city"))
-
-    if categories_counter:
-        print("\nTop categories:")
-        for cat, count in categories_counter.most_common(5):
-            print(f"  {cat}: {count}")
-
-    if cities_counter:
-        print("\nTop cities:")
-        for city, count in cities_counter.most_common(5):
-            print(f"  {city}: {count}")
-
-    # Optional report
     if args.report:
         report_path = Path(args.report)
-        report_data = {
-            "missing_fields": {col: missing_counts.get(col, 0) for col in all_columns},
-            "skipped_rows": Counter(r["reason"] for r in skipped_rows_info),
-            "invalid_websites": invalid_website_count,
-            "geocode_success": geocode_success_count,
-            "scrape_success": scrape_success_count,
+        report = {
+            "rows_written": len(normalized_rows),
+            "skipped": dict(skipped),
+            "plugins_enabled": list(plugins.keys()),
+            "plugin_timing_seconds": dict(plugin_timing),
+            "plugin_failures": dict(plugin_failures),
+            "output_columns": all_columns,
         }
+
         try:
-            if report_path.suffix.lower() == ".json":
-                with open(report_path, "w", encoding="utf-8") as f:
-                    json.dump(report_data, f, indent=2)
-            else:
-                with open(report_path, "w", encoding="utf-8", newline="") as f:
-                    writer = csv.writer(f)
-                    writer.writerow(["metric", "value"])
-                    for key, val in report_data.items():
-                        writer.writerow([key, val])
-            print(f"\nData quality report written to {report_path}")
-        except Exception as e:
-            print(f"Failed to write report: {e}")
-
-
-# --- Enrichment plugin implementations ---
-def geocode_row(row: Dict[str, str]) -> Dict[str, str]:
-    coords = geocode_address(row.get("city", ""), row.get("region", ""), row.get("country", ""))
-    if coords:
-        return {"lat": coords.get("lat", ""), "lon": coords.get("lon", "")}
-    return {"lat": "", "lon": ""}
-
-
-def scrape_row(row: Dict[str, str]) -> Dict[str, str]:
-    url = row.get("website", "")
-    if url:
-        title = scrape_website_title(url)
-        return {"title": title}
-    return {"title": ""}
+            with report_path.open("w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2)
+            print(f"Report written to {report_path}")
+        except Exception as exc:
+            print(f"Failed to write report: {exc}")
 
 
 if __name__ == "__main__":

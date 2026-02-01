@@ -1,5 +1,16 @@
-business_name,industry,location,website
-Acme   Corp,Tech,"Berlin, Germany",acme.com
-Pizza Palace,Restaurants,"Rome, Lazio, Italy",http://pizzapalace.it
-,,,
-Cloud Nine,IT,"San Francisco, CA, USA",cloud nine.com
+business_name,company,industry,location,website
+Acme Corp,,Tech,"Berlin, Germany",acme.com
+Cloud Nine,Cloud Nine Inc,Technology,"San Francisco, CA, USA",
+Pizza Palace,,Restaurants,"Rome,Lazio,Italy",http://pizzapalace.it
+,,Food,"Paris, Ile-de-France, France",noplace.com
+Mega Corp,Mega,Tech,"London, UK",
+Duplicate Corp,Duplicate,Tech,"Berlin, Germany",duplicate.com
+Duplicate Corp,Duplicate,Tech,"Berlin, Germany",duplicate.com
+Whitespace Inc,,Retail,"  New York , NY , USA ", www.whitespace.com
+Bad URL Corp,,Services,"Los Angeles, CA, USA",htp:/badurl
+business_name,category,city,region,country,website
+Acme Corp,Tech,Berlin,,Germany,https://acme.com
+ACME Corporation,Technology,Berlin,,Germany,https://acme.com
+Cloud Nine,Software,San Francisco,CA,USA,
+Pizza Palace,Restaurant,Rome,Lazio,Italy,http://pizzapalace.it
+Mystery Shop,,Unknown,,,

@@ -1,0 +1,23 @@
+{
+  "rows_written": 8,
+  "skipped": {
+    "duplicate": 1,
+    "min_fields": 6
+  },
+  "plugins_enabled": [
+    "scrape_title"
+  ],
+  "plugin_timing_seconds": {
+    "scrape_title": 15.817174799994973
+  },
+  "plugin_failures": {},
+  "output_columns": [
+    "name",
+    "category",
+    "city",
+    "region",
+    "country",
+    "website",
+    "website_title"
+  ]
+}

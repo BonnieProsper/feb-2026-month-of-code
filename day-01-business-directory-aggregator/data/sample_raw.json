@@ -1,20 +1,29 @@
 [
+  {"business_name": "Acme Corp", "industry": "Tech", "location": "Berlin, Germany", "website": "acme.com"},
+  {"company": "Cloud Nine Inc", "industry": "Technology", "location": "San Francisco, CA, USA"},
+  {"business_name": "Pizza Palace", "industry": "Restaurants", "location": "Rome,Lazio,Italy", "website": "http://pizzapalace.it"},
+  {"industry": "Food", "location": "Paris, Ile-de-France, France", "website": "noplace.com"},
+  {"business_name": "Mega Corp", "company": "Mega", "industry": "Tech", "location": "London, UK"},
+  {"business_name": "Duplicate Corp", "company": "Duplicate", "industry": "Tech", "location": "Berlin, Germany", "website": "duplicate.com"},
+  {"business_name": "Duplicate Corp", "company": "Duplicate", "industry": "Tech", "location": "Berlin, Germany", "website": "duplicate.com"},
+  {"business_name": "Whitespace Inc", "location": "  New York , NY , USA ", "website": "www.whitespace.com"},
+  {"business_name": "Bad URL Corp", "industry": "Services", "location": "Los Angeles, CA, USA", "website": "htp:/badurl"},
   {
-    "name": "Green Garden",
-    "category": "Restaurants",
-    "city": "Paris",
-    "country": "France",
-    "homepage": "greengarden.fr"
+    "name": "Acme Corp",
+    "category": "tech",
+    "city": "Berlin",
+    "country": "Germany",
+    "website": "https://acme.com"
   },
   {
-    "company": "Data Works",
-    "sector": "Technology",
-    "address": "London, UK",
-    "url": "https://dataworks.co.uk"
+    "name": "Pizza Palace",
+    "category": "Food",
+    "city": "Rome",
+    "region": "Lazio",
+    "country": "Italy",
+    "website": "http://pizzapalace.it"
   },
   {
-    "organization": "Mystery Co",
-    "location": "Unknown",
-    "website": ""
+    "name": "Ghost Entry"
   }
 ]

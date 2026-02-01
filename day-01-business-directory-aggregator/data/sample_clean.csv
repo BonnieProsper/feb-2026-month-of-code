@@ -1,7 +1,8 @@
 name,category,city,region,country,website
 Acme Corp,technology,Berlin,,Germany,https://acme.com
-Pizza Palace,restaurant,Rome,Lazio,Italy,http://pizzapalace.it
 Cloud Nine,technology,San Francisco,CA,USA,
-Green Garden,restaurant,Paris,,France,https://greengarden.fr
-Data Works,technology,London,,UK,https://dataworks.co.uk
-Mystery Co,,,,,
+Pizza Palace,restaurant,Rome,Lazio,Italy,http://pizzapalace.it
+Mega Corp,technology,London,,UK,
+Duplicate Corp,technology,Berlin,,Germany,duplicate.com
+Whitespace Inc,retail,New York,NY,USA,https://www.whitespace.com
+Bad URL Corp,services,Los Angeles,CA,USA,

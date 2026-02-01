@@ -1,127 +1,148 @@
-## Business Directory Normalizer
+## Business Directory Aggregator
 
-This is a small CLI tool that takes messy public business directory data (CSV or JSON) and produces a clean, normalized CSV suitable for downstream use (analysis, enrichment, lead generation, etc).
+A small, opinionated CLI tool for turning messy public business directory data into a clean, normalized CSV - with optional, fully modular enrichment.
 
-Public registries often publish data with inconsistent field names, categories, locations, and websites. This tool focuses on cleaning and standardizing that data in a simple, predictable way.
+Public registries often publish data with inconsistent field names, categories, locations, and websites. This tool focuses on producing a predictable, extensible baseline dataset that’s easy to reason about and easy to build on.
 
-The goal is not perfect correctness, but a clear and reliable normalization pass that’s easy to reason about and easy to extend if needed.
+The emphasis is clarity and correctness over cleverness.
 
-### What the tool does
+### What this tool does
 
 Given a CSV or JSON file containing business records, the tool:
 
 - accepts inconsistent input keys (e.g. company, business_name, organization)
-- normalizes core fields:
-    - business name
-    - category
-    - location (city/region/country)
-    - website URL
+- normalizes a core schema:
+  - name
+  - category
+  - city/region/country
+  - website
 - handles missing or malformed values gracefully
-- outputs a single clean CSV with a fixed schema and deterministic ordering
+- optionally deduplicates records
+- optionally enriches records via a plugin system
+- outputs a single clean CSV with a deterministic schema
 
-The output schema is always:
+The output schema automatically adapts to any enrichment plugins that are enabled.
 
-name,category,city,region,country,website
+### What it intentionally does not do
 
-### What it does not do
+This project is deliberately scoped. It does not:
+- scrape or geocode data by default
+- perform ML-based matching
+- act as a general-purpose ETL framework
 
-This tool intentionally does not:
-- scrape websites
-- enrich data via external APIs
-- perform fuzzy or ML-based matching
-- validate addresses or geocode locations
-- act as a general-purpose data pipeline
-
-It is a single, well-scoped normalization step.
+It is meant to be a clean, inspectable normalization + enrichment step.
+Scraping and geocoding are available only via explicitly enabled plugins.
 
 ### Project structure
-
+```powershell
 day-01-business-directory-aggregator/
   README.md
   src/
-    main.py
-    normalize.py
-    file_io.py
+    main.py              # CLI + orchestration only
+    file_io.py           # CSV/JSON streaming
+    normalize.py         # normalization + dedup logic
+    enrich/
+      registry.py        # plugin discovery + loading
+      plugins/           # drop-in enrichment plugins
   tests/
     test_normalization.py
   data/
     sample_raw.csv
     sample_raw.json
-    sample_clean.csv
+```
 
-### How to run the tool
+### Installation
 
-From the project root:
-
-Normalize a CSV file
-python src/main.py data/sample_raw.csv output.csv
-
-Normalize a JSON file
-python src/main.py data/sample_raw.json output.csv
-
-The output will be written to output.csv.
-On success, the tool produces no terminal output.
-
-### Example
-#### Input (CSV)
-business_name,industry,location,website
-Acme   Corp,Tech,"Berlin, Germany",acme.com
-Pizza Palace,Restaurants,"Rome, Lazio, Italy",http://pizzapalace.it
-
-#### Output (CSV)
-name,category,city,region,country,website
-Acme Corp,technology,Berlin,,Germany,https://acme.com
-Pizza Palace,restaurant,Rome,Lazio,Italy,http://pizzapalace.it
-
-### CLI Sorting
-
-You can optionally sort the output by name:
+Create and activate a virtual environment, then install dependencies:
 
 ```bash
-python src/main.py data/sample_raw.csv output.csv --sort name
+pip install -r requirements.txt
 ```
-This sorts the normalized CSV alphabetically by business name. Sorting is optional; if omitted, row order is preserved.
 
-### How normalization works 
+This project is intended to be run as a module, not as a script.
 
-- Names are trimmed and internal whitespace is collapsed.
-- Categories are lowercased and lightly normalized using a small, explicit mapping.
-- Locations prefer structured fields (city, region, country) and fall back to simple comma-based parsing if needed.
-- Websites are cleaned conservatively:
-  - schemes are added when missing
-  - clearly invalid values are dropped
+### How to run
 
-If a value can’t be confidently extracted, it is left empty.
+From the project root (day-01-business-directory-aggregator):
 
-### Running tests
+#### List available enrichment plugins
+```bash
+python -m src.main --list-plugins
+```
+
+#### Normalize a CSV file
+```bash
+python -m src.main data/sample_raw.csv output.csv
+```
+
+#### Normalize with enrichment and deduplication
+```bash
+python -m src.main data/sample_raw.csv output.csv \
+  --deduplicate \
+  --enable-plugin scrape_title \
+  --enable-plugin geocode
+```
+
+(On Windows/PowerShell, run this on a single line.)
+
+#### Dry run (inspect schema without writing output)
+```bash
+python -m src.main data/sample_raw.csv output.csv --dry-run
+```
+
+### Enrichment plugins
+
+Enrichment is fully modular.
+- Plugins live in src/enrich/plugins/
+- Each plugin exposes:
+  - name: str
+  - enrich(row) -> dict | None
+- Any new fields returned by plugins are automatically added to the output CSV
+
+Plugins can be enabled selectively via --enable-plugin.
+
+### Output schema
+
+The following columns are always present:
+
+name, category, city, region, country, website
+
+Any additional columns come from enabled enrichment plugins
+
+When enrichment plugins are enabled, additional columns are appended automatically:
+
+name, category, city, region, country, website, lat, lon, website_title
+
+### Tests
 
 Tests focus on core normalization behavior.
 
 To run them:
-
+```bash 
 pytest
-
+```
 
 ### Design decisions
 
-- Flat structure with no frameworks to keep the code easy to follow.
-- Normalization logic is isolated from I/O for testability.
-- Input row order is preserved to avoid surprising behavior.
-- Errors fail early and clearly rather than being silently ignored.
+- Clear separation between I/O, normalization, enrichment, and orchestration
+- No framework dependencies
+- Defensive plugin boundaries (one bad plugin can’t break the pipeline)
+- Dynamic schema generation without hardcoding enrichment fields
+- Explicit CLI behavior over “magic” defaults
 
 ### Known limitations
 
-- Category normalization is heuristic and limited to a small mapping.
-- Location parsing is shallow and not precise for complex addresses.
-- JSON input must be a list of objects.
-- Output is always CSV.
-- Website normalization handles common cases but may drop unusual or malformed URLs.
-- Empty or unparseable fields are left empty.
+- Category normalization is heuristic and intentionally small
+- Location parsing is shallow and not address-accurate
+- JSON input must be a list of objects
+- Output is always CSV
+- Enrichment plugins are trusted code (not sandboxed)
 
-These tradeoffs were made to keep the project well-scoped.
+These tradeoffs are intentional to keep the project focused.
 
-### What I’d do with more time
+### What I’d do next
 
-- Expand category normalization using a configurable mapping.
-- Add lightweight validation reporting (e.g counts of dropped websites).
-- Support streaming large files instead of loading everything into memory.
+- Plugin-level configuration flags
+- Optional concurrency for slow enrichments
+- Lightweight data quality scoring
+- Streaming output for very large files
