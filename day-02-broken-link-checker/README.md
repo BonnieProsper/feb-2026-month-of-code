@@ -1,55 +1,27 @@
 # Broken Link Checker (CLI)
 
-A small, focused CLI tool that crawls a single website and reports broken internal links.
+A focused, professional CLI tool to crawl a single website and report broken internal links.
 
-This is a bounded diagnostic tool, not a full SEO crawler. It is designed to be predictable, easy to reason about, and safe to run against real sites.
-
----
-
-## What this tool does
-
-- Crawls a single domain starting from a base URL
-- Follows **internal links only** (same hostname)
-- Uses a depth limit and page cap to bound crawling
-- Checks discovered links for:
-  - HTTP 4xx and 5xx responses
-  - timeouts and request failures
-- Outputs:
-  - a concise terminal summary
-  - a CSV report of broken links with source pages
+This is a **diagnostic, bounded crawler**, not a full SEO tool. It emphasizes predictable behavior, safety, and transparency for real-world use.
 
 ---
 
-## What this tool deliberately does *not* do
+## Features
 
-This project is intentionally scoped. It does **not** include:
-
-- JavaScript rendering
-- sitemap or robots.txt parsing
-- external link checking
-- parallel or asynchronous requests
-- retries or backoff logic
-- SEO scoring or recommendations
-
-These omissions are deliberate to keep behavior predictable and the code easy to audit.
-
----
-
-## Crawl boundaries and behavior
-
-Crawling is bounded by three mechanisms:
-
-1. **Domain restriction**  
-   Only URLs with the exact same hostname as the base URL are considered internal.  
-   Subdomains (e.g. `blog.example.com`) are treated as external and ignored.
-
-2. **Depth limit**  
-   Limits how many link hops away from the base page the crawler will go.
-
-3. **Maximum page count**  
-   Hard cap on how many pages will be fetched.
-
-The crawler also tracks visited URLs to avoid infinite loops.
+- Crawl a **single domain** starting from a base URL
+- Follow **internal links only** (exact hostname match; subdomains ignored)
+- Configurable crawl limits:
+  - `--max-depth` – maximum link hops
+  - `--max-pages` – maximum pages fetched
+- **Link checking** for:
+  - HTTP 4xx / 5xx errors
+  - Timeouts and request failures
+- **Enhanced reliability**
+  - Retry transient errors (timeouts, 5xx)
+  - Configurable request timeout
+- **Progress reporting** for long crawls
+- **CSV output**, optionally sorted by severity
+- Graceful handling of **Ctrl+C** to save partial results
 
 ---
 
@@ -58,31 +30,33 @@ The crawler also tracks visited URLs to avoid infinite loops.
 Create a virtual environment and install dependencies:
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\Activate.ps1 on Windows
 pip install -r requirements.txt
+Dependencies are minimal: requests and beautifulsoup4.
 ```
 
-Dependencies are intentionally minimal.
-
-## Usage
+Usage
 ```bash
 python -m src.main https://example.com \
   --max-depth 2 \
   --max-pages 100 \
+  --timeout 5 \
   --output broken_links.csv
 ```
 
-## Arguments
+## Arguments:
 
-- base_url (required): starting point for the crawl
-- --max-depth: maximum crawl depth (default: 2)
-- --max-pages: maximum pages to scan (default: 100)
-- --output: CSV output path (default: broken_links.csv)
+- base_url (required): starting URL
+- --max-depth: max link hops (default 2)
+- --max-pages: max pages to scan (default 100)
+- --timeout: HTTP request timeout in seconds (default 5)
+- --output: CSV output path (default broken_links.csv)
 
-## Example output
-
-Terminal:
-
+## Example Terminal Output
 ```text
+[Page 1/100] Crawling: https://example.com/
+[Page 2/100] Crawling: https://example.com/about/
 Crawl complete
 Pages scanned: 12
 Links checked: 87
@@ -90,25 +64,42 @@ Broken links found: 4
 Report written to: /path/to/broken_links.csv
 ```
 
-CSV (broken_links.csv):
-
+## Example CSV Output
 ```text
 source_page,link_url,status
 https://example.com/,https://example.com/old-page/,404
 https://example.com/about/,https://example.com/contact/,timeout
+CSV is sorted by severity: timeouts → 5xx → 4xx.
 ```
 
-## Known limitations
+## Crawl Boundaries
+- Domain restriction: only exact hostname matches are followed. Subdomains are ignored.
+- Depth limit: limits link hops.
+- Page limit: ensures the crawl is bounded.
+- Visited tracking: prevents infinite loops.
 
-- Pages that fail to load are skipped silently during crawling
-- HTTP redirects are followed but not explicitly reported
+## Known Limitations
+
+- Does not render JavaScript
+- Does not parse sitemap/robots.txt
+- External links are ignored
+- HEAD requests are not used
 - Query parameters are not canonicalized
-- HEAD requests are not used (some servers mis-handle them)
 
-## What I would improve with more time
+## Design Decisions
 
-- Optional retry logic for transient network failures
-- Progress indicator for long crawls
-- Configurable inclusion of subdomains
-- Smarter URL canonicalization
-- Optional sorting of CSV output by severity
+- Predictable behavior: limited depth and page caps, exact hostname matching
+- User feedback: progress reporting for long crawls
+- Reliability: retry on transient network errors
+- Professional output: CSV sorted by severity, clear terminal summary
+- Safety: avoids external links and JS execution
+
+This tool prioritizes clarity, reliability, and auditability over brute-force crawling or SEO metrics.
+
+## Possible Future Improvements
+
+- Parallel/asynchronous crawling for speed
+- Optional subdomain inclusion
+- More advanced canonicalization of URLs
+- Configurable CSV sorting options
+- Integration with CI/CD to check live websites automatically

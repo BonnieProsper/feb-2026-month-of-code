@@ -1,4 +1,5 @@
 from src.crawler import normalize_url, is_internal_url
+from src.checker import check_link
 
 
 BASE = "https://example.com"
@@ -33,3 +34,8 @@ def test_internal_url_different_subdomain_is_external():
 
 def test_internal_url_different_domain():
     assert is_internal_url("https://example.org/", BASE) is False
+
+def test_check_link_timeout():
+    status, error = check_link("http://10.255.255.1", timeout=1, retries=0)
+    assert status is None
+    assert error == "timeout"
