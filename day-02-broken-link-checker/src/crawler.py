@@ -40,6 +40,10 @@ def crawl_site(
 
         for tag in soup.find_all("a", href=True):
             raw_href = tag.get("href")
+
+            if not isinstance(raw_href, str):
+                continue
+
             normalized = normalize_url(raw_href, url)
 
             if not normalized:
