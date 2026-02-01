@@ -21,7 +21,8 @@ This is a **diagnostic, bounded crawler**, not a full SEO tool. It emphasizes pr
   - Configurable request timeout
 - **Progress reporting** for long crawls
 - **CSV output**, optionally sorted by severity
-- Graceful handling of **Ctrl+C** to save partial results
+- Ctrl+C at any time will gracefully stop the crawl and write a partial report.
+
 
 ---
 
@@ -33,8 +34,8 @@ Create a virtual environment and install dependencies:
 python -m venv .venv
 source .venv/bin/activate  # or .venv\Scripts\Activate.ps1 on Windows
 pip install -r requirements.txt
-Dependencies are minimal: requests and beautifulsoup4.
 ```
+Dependencies are minimal: requests, beautifulsoup4 and tqdm for progress bars.
 
 Usage
 ```bash

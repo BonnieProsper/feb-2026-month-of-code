@@ -16,14 +16,14 @@ def crawl_site(
 
     Args:
         base_url: starting URL
-        max_depth: max crawl depth
+        max_depth: max crawl depth from base
         max_pages: max pages to scan
-        timeout: request timeout
+        timeout: request timeout in seconds
         progress_callback: optional callback for progress reporting
             signature: (current_page_index, max_pages, url)
 
     Returns:
-        Tuple[pages_scanned, discovered_links]
+        Tuple[pages_scanned, discovered_links]: number of pages scanned, list of (source_page, link_url)
     """
     to_visit: List[Tuple[str, int]] = [(base_url, 0)]
     visited: set[str] = set()

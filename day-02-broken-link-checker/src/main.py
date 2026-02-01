@@ -3,6 +3,9 @@ import csv
 from pathlib import Path
 import sys
 import signal
+from typing import List, Tuple
+
+from tqdm import tqdm  # for progress bars
 
 from src.crawler import crawl_site
 from src.checker import check_link
@@ -45,8 +48,11 @@ def parse_args():
     return parser.parse_args()
 
 
-def write_csv(path: Path, rows: list[tuple[str, str, str]]):
-    # Sort by severity: connection errors > 5xx > 4xx
+def write_csv(path: Path, rows: List[Tuple[str, str, str]]):
+    """
+    Write broken links to CSV, sorted by severity:
+    connection errors > 5xx > 4xx > others
+    """
     def severity(row):
         status = row[2]
         if status in ("timeout", "connection_error", "request_error"):
@@ -71,14 +77,14 @@ def write_csv(path: Path, rows: list[tuple[str, str, str]]):
 
 def main():
     args = parse_args()
-    broken_rows: list[tuple[str, str, str]] = []
+    broken_rows: List[Tuple[str, str, str]] = []
     interrupted = False
 
+    # Graceful Ctrl+C handling
     def handle_sigint(signum, frame):
         nonlocal interrupted
         interrupted = True
         print("\nCrawl interrupted by user. Writing partial report...")
-        # Will exit crawl loop gracefully
 
     signal.signal(signal.SIGINT, handle_sigint)
 
@@ -91,9 +97,10 @@ def main():
         progress_callback=lambda current, total, url: print(f"[Page {current}/{total}] Crawling: {url}")
     )
 
-    # Check links with progress
+    # Check links with a tqdm progress bar for a professional live indicator
     total_links = len(discovered_links)
-    for i, (source_page, link_url) in enumerate(discovered_links, start=1):
+    print(f"\nChecking {total_links} discovered links...")
+    for i, (source_page, link_url) in enumerate(tqdm(discovered_links, desc="Links", unit="link"), start=1):
         if interrupted:
             break
 
@@ -103,14 +110,11 @@ def main():
         elif status is not None and status >= 400:
             broken_rows.append((source_page, link_url, str(status)))
 
-        # Print progress every 5 links
-        if i % 5 == 0 or i == total_links:
-            print(f"[Link {i}/{total_links}] Checked: {link_url}")
-
     # Write CSV
     output_path = Path(args.output)
     write_csv(output_path, broken_rows)
 
+    # Final summary
     print("\nCrawl complete")
     print(f"Pages scanned: {pages_scanned}")
     print(f"Links checked: {len(discovered_links)}")
