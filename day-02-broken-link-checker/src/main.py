@@ -2,8 +2,8 @@ import argparse
 import csv
 from pathlib import Path
 
-from crawler import crawl_site
-from checker import check_link
+from src.crawler import crawl_site
+from src.checker import check_link
 
 
 def parse_args():
