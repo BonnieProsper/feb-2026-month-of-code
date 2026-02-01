@@ -4,16 +4,14 @@ import json
 import csv
 import time
 from collections import Counter
-from typing import List, Dict, Optional, Callable
+from typing import List, Dict, Optional, Callable, Set
 
 from file_io import read_csv_stream, read_json_stream, write_csv
 from normalize import normalize_record, CATEGORY_MAP, is_duplicate
 from enrich import geocode_address, scrape_website_title
 
-# Mandatory fields + enrichment fields
-MANDATORY_COLUMNS = [
-    "name", "category", "city", "region", "country", "website", "lat", "lon", "title"
-]
+# Core mandatory fields
+CORE_COLUMNS = ["name", "category", "city", "region", "country", "website"]
 
 # Type for enrichment plugin
 EnrichmentPlugin = Callable[[Dict[str, str]], Dict[str, str]]
@@ -25,12 +23,14 @@ def main() -> None:
     Features:
         - Streaming CSV/JSON input
         - Deduplication (exact + fuzzy)
+        - Plugin-style enrichment (auto-detects extra fields)
         - Optional geocoding
-        - Plugin-style enrichment (e.g., website scraping)
+        - Optional website scraping
+        - Dynamic CSV output with all enrichment fields
         - Full reporting and top category/city summaries
     """
     parser = argparse.ArgumentParser(
-        description="Normalize public business directory datasets with optional enrichment."
+        description="Normalize business directory datasets with dynamic enrichment."
     )
     parser.add_argument("input_file", help="Path to input CSV or JSON file")
     parser.add_argument("output_file", help="Path to output CSV file")
@@ -98,9 +98,9 @@ def main() -> None:
     # Enrichment plugins list
     enrichment_plugins: List[EnrichmentPlugin] = []
     if args.geocode:
-        enrichment_plugins.append(lambda row: geocode_row(row))
+        enrichment_plugins.append(geocode_row)
     if args.scrape:
-        enrichment_plugins.append(lambda row: scrape_row(row))
+        enrichment_plugins.append(scrape_row)
 
     normalized_rows: List[Dict[str, str]] = []
     skipped_rows_info = []
@@ -109,6 +109,9 @@ def main() -> None:
     invalid_website_count = 0
     geocode_success_count = 0
     scrape_success_count = 0
+
+    # Track dynamic enrichment columns
+    enrichment_columns: Set[str] = set()
 
     # Process each row
     for raw_row in raw_rows_gen:
@@ -119,7 +122,7 @@ def main() -> None:
             normalized = normalize_record(raw_row)
 
             # Apply min-fields filter
-            non_empty_count = sum(1 for c in MANDATORY_COLUMNS if normalized.get(c))
+            non_empty_count = sum(1 for c in CORE_COLUMNS if normalized.get(c))
             if non_empty_count < args.min_fields:
                 reason = f"min_fields<{args.min_fields}"
 
@@ -130,7 +133,9 @@ def main() -> None:
                 # Apply enrichment plugins
                 for plugin in enrichment_plugins:
                     result = plugin(normalized)
-                    normalized.update(result)
+                    if result:
+                        normalized.update(result)
+                        enrichment_columns.update(result.keys())
 
                 # Track enrichment counts
                 if args.geocode and normalized.get("lat") and normalized.get("lon"):
@@ -152,13 +157,16 @@ def main() -> None:
     if args.sort == "name":
         normalized_rows.sort(key=lambda r: r["name"].lower())
 
+    # Dynamically determine all columns for CSV output
+    all_columns = CORE_COLUMNS + sorted(enrichment_columns)
+
     # Write normalized output
-    write_csv(str(output_path), normalized_rows, fieldnames=MANDATORY_COLUMNS)
+    write_csv(str(output_path), normalized_rows, fieldnames=all_columns)
 
     # Generate data quality summary
     missing_counts = Counter()
     for row in normalized_rows:
-        for col in MANDATORY_COLUMNS:
+        for col in all_columns:
             if not row.get(col):
                 missing_counts[col] += 1
 
@@ -182,8 +190,8 @@ def main() -> None:
         print(f"Successfully scraped website titles: {scrape_success_count}")
 
     # Top categories / cities
-    categories_counter = Counter(r["category"] for r in normalized_rows if r["category"])
-    cities_counter = Counter(r["city"] for r in normalized_rows if r["city"])
+    categories_counter = Counter(r["category"] for r in normalized_rows if r.get("category"))
+    cities_counter = Counter(r["city"] for r in normalized_rows if r.get("city"))
 
     if categories_counter:
         print("\nTop categories:")
@@ -199,7 +207,7 @@ def main() -> None:
     if args.report:
         report_path = Path(args.report)
         report_data = {
-            "missing_fields": {col: missing_counts.get(col, 0) for col in MANDATORY_COLUMNS},
+            "missing_fields": {col: missing_counts.get(col, 0) for col in all_columns},
             "skipped_rows": Counter(r["reason"] for r in skipped_rows_info),
             "invalid_websites": invalid_website_count,
             "geocode_success": geocode_success_count,
