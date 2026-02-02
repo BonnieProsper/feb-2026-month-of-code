@@ -1,22 +1,18 @@
 {
   "invoice_number": "INV-2026-0012",
   "invoice_date": "2026-02-03",
-
   "company": {
     "name": "Bonni Software Ltd",
     "address": "123 Queen Street\nAuckland 1010\nNew Zealand",
     "email": "accounts@bonnisoftware.dev",
     "logo_path": "data/logo.png"
   },
-
   "client": {
     "name": "Manning Manufacturing Co",
     "address": "45 Industrial Way\nWellington 6021\nNew Zealand",
     "email": "finance@manning.co.nz"
   },
-
   "tax_rate": 0.15,
-
   "line_items": [
     {
       "description": "Backend development (API + integrations)",
@@ -29,6 +25,5 @@
       "unit_price": 950.0
     }
   ],
-
   "notes": "Payment due within 14 days. Thank you for your business."
 }
