@@ -1,43 +1,84 @@
 # Broken Link Checker (CLI)
 
-A focused, professional CLI tool to crawl a single website and report broken internal links.
+A focused, production-style CLI tool to crawl a single website and report broken links in a safe, bounded, and predictable way.
 
-This is a **diagnostic, bounded crawler**, not a full SEO tool. It emphasizes predictable behavior, safety, and transparency for real-world use.
+This is a **diagnostic crawler**, not a full SEO platform. The goal is correctness, transparency, and engineering discipline rather than aggressive crawling or ranking metrics.
+
+---
+
+## What this tool does
+
+- Crawls a website starting from a base URL
+- Discovers and checks links found in HTML pages
+- Reports broken links with clear context and severity
+- Produces machine-readable and human-readable reports
+- Can be safely used locally, in CI, or against production sites
 
 ---
 
 ## Features
 
-- Crawl a **single domain** starting from a base URL
-- Follow **internal links only** (exact hostname match; subdomains ignored)
-- Configurable crawl limits:
-  - `--max-depth` – maximum link hops
-  - `--max-pages` – maximum pages fetched
-- **Link checking** for:
-  - HTTP 4xx / 5xx errors
-  - Timeouts and request failures
-- **Enhanced reliability**
-  - Retry transient errors (timeouts, 5xx)
-  - Configurable request timeout
-- **Progress reporting** for long crawls
-- **CSV output**, optionally sorted by severity
-- Ctrl+C at any time will gracefully stop the crawl and write a partial report.
+### Crawling
+- Crawl **a single domain** starting from a base URL
+- **Exact hostname matching** for internal pages  
+  (subdomains are treated as external)
+- Bounded traversal:
+  - `--max-depth` limits link hops
+  - `--max-pages` caps total pages fetched
+- Tracks visited URLs to prevent infinite loops
 
+### Link checking
+- Detects:
+  - HTTP 4xx and 5xx responses
+  - Timeouts and connection failures
+- Optional **HEAD → GET fallback** for efficiency
+- Retries transient failures (timeouts, 5xx)
+
+### Performance
+- **Optional async link checking** using `aiohttp`
+  - Enabled with `--async`
+  - Significant speed-ups on large sites
+- Crawl remains synchronous by design (see Design Notes)
+
+### Reporting
+- **CSV report** (sorted by severity)
+- **Markdown report** for human review
+- **JSON summary** for automation/CI
+- Broken links include:
+  - Source page
+  - Link URL
+  - Failure reason
+  - Link type (internal / external / anchor)
+
+### UX & safety
+- Progress bars for long runs
+- Graceful Ctrl+C handling (partial reports are still written)
+- Base page status is checked and reported
+- CI-friendly mode with `--fail-on-broken`
 
 ---
 
 ## Installation
 
-Create a virtual environment and install dependencies:
+Create and activate a virtual environment, then install dependencies:
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\Activate.ps1 on Windows
+source .venv/bin/activate   # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-```
-Dependencies are minimal: requests, beautifulsoup4 and tqdm for progress bars.
 
-Usage
+# Optional dependency (only needed for async checking):
+pip install aiohttp
+```
+
+## Usage
+Basic usage:
+
+```bash
+python -m src.main https://example.com
+```
+With limits and output control:
+
 ```bash
 python -m src.main https://example.com \
   --max-depth 2 \
@@ -45,62 +86,76 @@ python -m src.main https://example.com \
   --timeout 5 \
   --output broken_links.csv
 ```
+Enable async checking and CI mode:
 
-## Arguments:
+```bash
+python -m src.main https://example.com \
+  --async \
+  --fail-on-broken
+```
+## CLI Arguments
+- base_url (required) – starting URL
+- --max-depth – maximum link hops (default: 2)
+- --max-pages – maximum pages to crawl (default: 100)
+- --timeout – request timeout in seconds (default: 5)
+- --retries – retry count for transient failures (default: 1)
+- --output – base output path (default: broken_links.csv)
+- --no-head – disable HEAD requests
+- --async – enable async link checking
+- --fail-on-broken – exit non-zero if broken links are found
+- --verbose – print broken links as they are detected
 
-- base_url (required): starting URL
-- --max-depth: max link hops (default 2)
-- --max-pages: max pages to scan (default 100)
-- --timeout: HTTP request timeout in seconds (default 5)
-- --output: CSV output path (default broken_links.csv)
+Example terminal output
+````text
+Base page status: ok
+Checking links: 100%|██████████| 87/87 [00:01<00:00, 64.2 link/s]
 
-## Example Terminal Output
-```text
-[Page 1/100] Crawling: https://example.com/
-[Page 2/100] Crawling: https://example.com/about/
 Crawl complete
-Pages scanned: 12
-Links checked: 87
-Broken links found: 4
+Broken links: 4
 Report written to: /path/to/broken_links.csv
-```
+No broken links found 🎉
+``` 
 
-## Example CSV Output
-```text
-source_page,link_url,status
-https://example.com/,https://example.com/old-page/,404
-https://example.com/about/,https://example.com/contact/,timeout
-CSV is sorted by severity: timeouts → 5xx → 4xx.
-```
+## Output formats
+#### CSV (sorted by severity)
+```bash
+source_page,link_url,status,link_type
+https://example.com/,https://example.com/old-page/,404,internal
+https://example.com/about/,https://example.com/api/,timeout,external
+``` 
 
-## Crawl Boundaries
-- Domain restriction: only exact hostname matches are followed. Subdomains are ignored.
-- Depth limit: limits link hops.
-- Page limit: ensures the crawl is bounded.
-- Visited tracking: prevents infinite loops.
+Severity order:
+- Timeouts / connection errors
+- 5xx responses
+- 4xx responses
+- Other errors
 
-## Known Limitations
+Markdown: Human-readable report suitable for sharing or review.
 
-- Does not render JavaScript
-- Does not parse sitemap/robots.txt
-- External links are ignored
-- HEAD requests are not used
+JSON: Structured summary intended for CI/automation.
+
+## Design notes
+#### Why crawling is synchronous
+Crawling is stateful and safety-critical (depth limits, domain rules, visit tracking). A synchronous crawl keeps behavior predictable and easy to reason about.
+
+#### Why link checking can be async
+Link checks are independent, I/O-bound operations. Making them optionally async provides large performance gains without complicating crawl logic.
+
+#### Why subdomains are external
+Treating subdomains as external avoids accidental cross-site crawling and keeps scope explicit. This can be relaxed in the future if needed.
+
+## Known limitations
+- Does not execute JavaScript
+- Does not parse robots.txt or sitemaps
 - Query parameters are not canonicalized
+- Crawl itself is intentionally synchronous
 
-## Design Decisions
+These are deliberate tradeoffs to keep the tool safe, auditable, and predictable.
 
-- Predictable behavior: limited depth and page caps, exact hostname matching
-- User feedback: progress reporting for long crawls
-- Reliability: retry on transient network errors
-- Professional output: CSV sorted by severity, clear terminal summary
-- Safety: avoids external links and JS execution
-
-This tool prioritizes clarity, reliability, and auditability over brute-force crawling or SEO metrics.
-
-## Possible Future Improvements
-
-- Parallel/asynchronous crawling for speed
+## Possible future improvements
+- Async crawling (with strict concurrency limits)
 - Optional subdomain inclusion
-- More advanced canonicalization of URLs
-- Configurable CSV sorting options
-- Integration with CI/CD to check live websites automatically
+- Sitemap-based crawl bootstrapping
+- Canonical URL normalization
+- GitHub Actions example using --fail-on-broken
+
