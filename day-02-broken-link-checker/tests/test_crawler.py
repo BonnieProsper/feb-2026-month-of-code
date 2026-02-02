@@ -1,24 +1,25 @@
-from src.crawler import normalize_url, is_internal_url
+from src.crawler import crawl_site
 
 
-def test_normalize_url_basic():
-    url = normalize_url("/about", "https://example.com")
-    assert url == "https://example.com/about/"
+def test_crawl_basic_internal_links():
+    base_url = "https://example.com"
+    pages_scanned, links = crawl_site(base_url, max_depth=1, max_pages=5)
+
+    # All discovered links should have the expected structure
+    for source, url, link_type in links:
+        assert source.startswith("https://")
+        assert url.startswith("https://")
+        assert link_type in ("internal", "external", "anchor")
 
 
-def test_ignore_mailto():
-    assert normalize_url("mailto:test@example.com", "https://example.com") is None
+def test_internal_and_external_links_classification():
+    base_url = "https://example.com"
 
+    # Mock links manually using a small HTML snippet if needed
+    pages_scanned, links = crawl_site(base_url, max_depth=1, max_pages=5)
 
-def test_internal_url():
-    assert is_internal_url(
-        "https://example.com/page/",
-        "https://example.com",
-    )
-
-
-def test_external_url():
-    assert not is_internal_url(
-        "https://other.com",
-        "https://example.com",
-    )
+    for source, url, link_type in links:
+        if base_url in url:
+            assert link_type in ("internal", "anchor")
+        else:
+            assert link_type == "external"

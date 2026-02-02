@@ -29,30 +29,17 @@ def check_link(
     attempt = 0
     while attempt <= retries:
         try:
+            headers = {"User-Agent": "BrokenLinkChecker/1.0"}
             if use_head:
-                response = requests.head(
-                    url,
-                    timeout=timeout,
-                    allow_redirects=True,
-                )
-
-                # Some servers return 405 or bogus results for HEAD
+                response = requests.head(url, timeout=timeout, allow_redirects=True, headers=headers)
                 if response.status_code < 400:
                     return response.status_code, None
 
-            # Fallback to GET
-            
-            response = requests.get(
-                url,
-                timeout=timeout,
-                allow_redirects=True,
-            )
-
+            response = requests.get(url, timeout=timeout, allow_redirects=True, headers=headers)
             # Treat 5xx as transient error to allow retry
             if 500 <= response.status_code <= 599 and attempt < retries:
                 attempt += 1
                 continue
-
             return response.status_code, None
 
         except requests.Timeout:
@@ -60,16 +47,16 @@ def check_link(
                 attempt += 1
                 continue
             return None, "timeout"
-
+        
         except requests.ConnectionError:
             if attempt < retries:
                 attempt += 1
                 continue
             return None, "connection_error"
-
+        
         except requests.RequestException:
             # Non-transient errors
             return None, "request_error"
-
+        
     # Should not reach here, but fallback
     return None, "request_error"

@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse, urlunparse
+from urllib.parse import urljoin, urlparse
 from typing import Callable, List, Tuple, Optional
 
 
@@ -10,25 +10,20 @@ def crawl_site(
     max_pages: int = 100,
     timeout: int = 5,
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
-) -> Tuple[int, List[Tuple[str, str]]]:
+) -> Tuple[int, List[Tuple[str, str, str]]]:
     """
-    Crawl a single domain and collect internal links.
-
-    Args:
-        base_url: starting URL
-        max_depth: max crawl depth from base
-        max_pages: max pages to scan
-        timeout: request timeout in seconds
-        progress_callback: optional callback for progress reporting
-            signature: (current_page_index, max_pages, url)
+    Crawl a single domain and collect links.
 
     Returns:
-        Tuple[pages_scanned, discovered_links]: number of pages scanned, list of (source_page, link_url)
+        pages_scanned: int
+        discovered_links: List of (source_page, url, link_type)
+            link_type: 'internal', 'external', 'anchor'
     """
+    headers = {"User-Agent": "BrokenLinkChecker/1.0"}
     to_visit: List[Tuple[str, int]] = [(base_url, 0)]
     visited: set[str] = set()
     pages_scanned = 0
-    discovered_links: List[Tuple[str, str]] = []
+    discovered_links: List[Tuple[str, str, str]] = []
 
     while to_visit:
         url, depth = to_visit.pop(0)
@@ -43,53 +38,36 @@ def crawl_site(
             progress_callback(pages_scanned, max_pages, url)
 
         try:
-            response = requests.get(url, timeout=timeout)
-            content_type = response.headers.get("Content-Type", "")
+            resp = requests.get(url, timeout=timeout, headers=headers)
+            content_type = resp.headers.get("Content-Type", "")
         except requests.RequestException:
             continue
 
         if "text/html" not in content_type:
             continue
 
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup = BeautifulSoup(resp.text, "html.parser")
         for tag in soup.find_all("a", href=True):
-            href = tag.get("href")
-            if not isinstance(href, str):
+            href = str(tag.get("href", "")).strip()
+            if not href or href.startswith(("mailto:", "tel:", "javascript:")):
                 continue
 
-            normalized = normalize_url(href, url)
-            if not normalized or not is_internal_url(normalized, base_url):
-                continue
+            # Normalize URL
+            normalized = urljoin(url, href)
+            parsed = urlparse(normalized)
 
-            discovered_links.append((url, normalized))
+            # Classify link type
+            if parsed.fragment:
+                link_type = "anchor"
+            elif parsed.netloc.lower() == urlparse(base_url).netloc.lower():
+                link_type = "internal"
+            else:
+                link_type = "external"
 
-            if depth + 1 <= max_depth and normalized not in visited:
+            discovered_links.append((url, normalized, link_type))
+
+            # Queue internal links for further crawling
+            if link_type == "internal" and depth + 1 <= max_depth and normalized not in visited:
                 to_visit.append((normalized, depth + 1))
 
     return pages_scanned, discovered_links
-
-
-def normalize_url(href: str, base_url: str) -> Optional[str]:
-    """Normalize URL: absolute, lowercase scheme/netloc, ensure path ends with /"""
-    if not href:
-        return None
-    href = href.strip()
-    if href.startswith(("mailto:", "tel:", "javascript:")):
-        return None
-
-    absolute = urljoin(base_url, href)
-    parsed = urlparse(absolute)
-    if not parsed.scheme or not parsed.netloc:
-        return None
-
-    scheme, netloc = parsed.scheme.lower(), parsed.netloc.lower()
-    path = parsed.path or "/"
-    if not path.endswith("/"):
-        path += "/"
-
-    return urlunparse((scheme, netloc, path, "", parsed.query, ""))
-
-
-def is_internal_url(url: str, base_url: str) -> bool:
-    """Check if URL is internal to the base domain"""
-    return urlparse(url).netloc.lower() == urlparse(base_url).netloc.lower()

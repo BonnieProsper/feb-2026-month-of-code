@@ -231,7 +231,6 @@ async def main():
     broken_rows = []
     interrupted = False
 
-    # Graceful Ctrl+C
     def handle_sigint(*_):
         nonlocal interrupted
         interrupted = True
@@ -247,14 +246,16 @@ async def main():
         use_head=not args.no_head,
     )
 
+    base_status = "ok"
     if error:
         base_status = error
         print(red(f"Base page error: {error}"))
+        broken_rows.append((args.base_url, args.base_url, error, "base"))
     elif status is not None and status >= 400:
         base_status = str(status)
         print(red(f"Base page status: {status}"))
+        broken_rows.append((args.base_url, args.base_url, str(status), "base"))
     else:
-        base_status = "ok"
         print(green("Base page OK"))
 
     # --- Crawl ---
@@ -262,73 +263,48 @@ async def main():
         base_url=args.base_url,
         max_depth=args.max_depth,
         max_pages=args.max_pages,
-        timeout=args.timeout,
     )
 
+    if not discovered_links:
+        print(yellow("No links discovered during crawl."))
+
     # --- Link checking ---
-    if args.use_async:
-        async with aiohttp.ClientSession() as session:
-            for source, url in tqdm(discovered_links, desc="Checking links", unit="link"):
+    async def check_loop():
+        if args.use_async:
+            async with aiohttp.ClientSession() as session:
+                for source, url, link_type in tqdm(discovered_links, desc="Checking links", unit="link"):
+                    if interrupted:
+                        break
+                    if link_type == "anchor":
+                        continue
+                    status, error = await check_link_async(session, url, timeout=args.timeout, retries=args.retries, use_head=not args.no_head)
+                    if error or (status and status >= 400):
+                        broken_rows.append((source, url, error or str(status), link_type))
+                        if args.verbose:
+                            print(red(f"BROKEN {url} ({error or status})"))
+                    elif args.verbose:
+                        print(green(f"OK {url} ({status})"))
+        else:
+            for source, url, link_type in tqdm(discovered_links, desc="Checking links", unit="link"):
                 if interrupted:
                     break
-
-                link_type = classify_link(args.base_url, url)
                 if link_type == "anchor":
                     continue
-
-                status, error = await check_link_async(
-                    session,
-                    url,
-                    timeout=args.timeout,
-                    retries=args.retries,
-                    use_head=not args.no_head,
-                )
-
-                if error or (status is not None and status >= 400):
+                status, error = check_link(url, timeout=args.timeout, retries=args.retries, use_head=not args.no_head)
+                if error or (status and status >= 400):
                     broken_rows.append((source, url, error or str(status), link_type))
                     if args.verbose:
                         print(red(f"BROKEN {url} ({error or status})"))
-    else:
-        for source, url in tqdm(discovered_links, desc="Checking links", unit="link"):
-            if interrupted:
-                break
+                elif args.verbose:
+                    print(green(f"OK {url} ({status})"))
 
-            link_type = classify_link(args.base_url, url)
-            if link_type == "anchor":
-                continue
-
-            status, error = check_link(
-                url,
-                timeout=args.timeout,
-                retries=args.retries,
-                use_head=not args.no_head,
-            )
-
-            if error or (status is not None and status >= 400):
-                broken_rows.append((source, url, error or str(status), link_type))
-                if args.verbose:
-                    print(red(f"BROKEN {url} ({error or status})"))
+    await check_loop()
 
     # --- Reports ---
     output_path = Path(args.output)
-
     write_csv(output_path, broken_rows)
-    write_markdown_report(
-        output_path,
-        args.base_url,
-        base_status,
-        pages_scanned,
-        len(discovered_links),
-        broken_rows,
-    )
-    write_json_summary(
-        output_path,
-        args.base_url,
-        base_status,
-        pages_scanned,
-        len(discovered_links),
-        broken_rows,
-    )
+    write_markdown_report(output_path, args.base_url, base_status, pages_scanned, len(discovered_links), broken_rows)
+    write_json_summary(output_path, args.base_url, base_status, pages_scanned, len(discovered_links), broken_rows)
 
     # --- Summary ---
     print("\nCrawl complete")
@@ -336,10 +312,10 @@ async def main():
     print(f"Links checked: {len(discovered_links)}")
     print(f"Broken links found: {len(broken_rows)}")
     print(f"Reports written to: {output_path.resolve()}")
+    print(green("No broken links found 🎉") if not broken_rows else red(f"Broken links found: {len(broken_rows)}"))
 
     if args.fail_on_broken and broken_rows:
         sys.exit(1)
-
 
 if __name__ == "__main__":
     asyncio.run(main())

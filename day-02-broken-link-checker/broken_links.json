@@ -1,0 +1,21 @@
+{
+  "base_url": "https://example.com",
+  "base_status": "ok",
+  "generated_at": "2026-02-02T06:08:25.590047Z",
+  "stats": {
+    "pages_scanned": 1,
+    "links_checked": 1,
+    "broken_links": 0
+  },
+  "severity_counts": {
+    "timeouts": 0,
+    "connection_errors": 0,
+    "5xx": 0,
+    "4xx": 0
+  },
+  "outputs": {
+    "csv": "broken_links.csv",
+    "markdown": "broken_links.md",
+    "json": "broken_links.json"
+  }
+}
