@@ -75,8 +75,12 @@ def _draw_parties(c, invoice: dict, x: float, y: float) -> None:
 
 def _draw_party_block(c, party: dict, x: float, y: float) -> None:
     c.drawString(x, y, party["name"])
-    c.drawString(x, y - 12, party["address"])
-    c.drawString(x, y - 24, party["email"])
+
+    # Split address by newline and draw each line
+    for i, line in enumerate(party["address"].split("\n")):
+        c.drawString(x, y - 12 * (i + 1), line)
+
+    c.drawString(x, y - 12 * (len(party["address"].split("\n")) + 1), party["email"])
 
 
 def _draw_line_items(c, invoice: dict, x: float, y: float) -> None:
