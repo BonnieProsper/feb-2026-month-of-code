@@ -124,9 +124,9 @@ Required top-level fields:
 Company/Client object:
 ```json
 {
-  "name": "Acme Ltd",
+  "name": "Manning Ltd",
   "address": "123 Queen Street",
-  "email": "billing@acme.co.nz",
+  "email": "billing@manning.co.nz",
   "logo_path": "data/logo.png"  // optional (company only)
 }
 ```
