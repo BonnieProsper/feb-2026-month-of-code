@@ -6,27 +6,28 @@ This project is intentionally scoped to demonstrate practical engineering judgme
 
 ---
 
-## What This Tool Does
+## Features
 
-* Reads a single invoice described in JSON
-* Validates required fields and data types
-* Calculates subtotal, tax, and total
-* Generates a clean, readable PDF invoice
-* Optionally includes company branding (logo)
-
-The tool is deterministic: the same input always produces the same output.
+- Read invoices from JSON or CSV input
+- Validate required fields and data types
+- Calculate subtotal, tax, and total
+- Generate clean, readable PDF invoices
+- Batch PDF generation
+- Export invoice totals to CSV or JSON
+- Optional minimal theming for PDF output
+- Deterministic behavior: same input → same output
 
 ---
 
-## What This Tool Does *Not* Do
+## Non-Features/Scope Limitations
 
-* No web interface or GUI
-* No batch processing
-* No multi‑currency support
-* No email sending or payment handling
-* No complex templating or theming engine
+- No web interface or GUI
+- No multi-currency support
+- No email sending or payment handling
+- Minimal PDF layout; no complex templating
+- Single-page invoices only
 
-These are deliberate scope decisions.
+These are deliberate scope decisions to keep the tool simple, reliable, and testable.
 
 ---
 
@@ -35,18 +36,26 @@ These are deliberate scope decisions.
 ```
 day-03-invoice-generator/
 ├── src/
-│   ├── cli.py
-│   ├── invoice_generator.py
-│   ├── pdf_utils.py
-│   ├── validation.py
-│   └── __init__.py
+│ ├── cli.py
+│ ├── invoice_generator.py
+│ ├── pdf_utils.py
+│ ├── validation.py
+│ ├── csv_loader.py
+│ ├── normalizer.py
+│ ├── reporting/
+│ │ ├── totals.py
+│ │ ├── csv_export.py
+│ │ ├── json_export.py
+│ ├── themes.py
+│ └── init.py
 ├── tests/
-│   ├── test_validation.py
-│   ├── test_calculations.py
-│   └── __init__.py
+│ ├── test_pdf_snapshot.py
+│ ├── test_pdf_generation.py
+│ ├── test_calculations.py
+│ └── init.py
 ├── data/
-│   ├── sample_invoice.json
-│   └── sample_invoice.pdf
+│ ├── sample_invoice.json
+│ └── sample_invoice.pdf
 ├── requirements.txt
 └── README.md
 ```
@@ -75,34 +84,44 @@ pip install -r requirements.txt
 ## Usage
 
 Generate a PDF invoice from a JSON file:
-
 ```bash
 python -m src.cli \
   --input data/sample_invoice.json \
   --output data/sample_invoice.pdf
 ```
 
-On success:
-
-```text
-Invoice generated successfully: data/sample_invoice.pdf
+Batch generate PDFs from multiple files:
+```bash
+python -m src.cli \
+  --input "data/invoices/*.json" \
+  --output-dir data/output_pdfs
 ```
 
----
+Check invoices without generating PDFs:
+```bash
+python -m src.cli --input data/sample_invoice.json --check
+```
 
-## Input JSON Schema
+Export invoice totals:
+```bash
+python -m src.cli \
+  --input "data/invoices/*.json" \
+  --output-dir data/output \
+  --export-totals data/totals.csv
+```
 
-### Required Top‑Level Fields
+## Input Formats
+### JSON
 
-* `invoice_number` (string)
-* `invoice_date` (string)
-* `company` (object)
-* `client` (object)
-* `line_items` (non‑empty list)
-* `tax_rate` (number between 0 and 1)
+Required top-level fields:
+- invoice_number (string)
+- invoice_date (YYYY-MM-DD string)
+- company (object)
+- client (object)
+- line_items (non-empty list)
+- tax_rate (number between 0 and 1)
 
-### Company / Client Object
-
+Company/Client object:
 ```json
 {
   "name": "Acme Ltd",
@@ -112,8 +131,7 @@ Invoice generated successfully: data/sample_invoice.pdf
 }
 ```
 
-### Line Item Object
-
+Line item object:
 ```json
 {
   "description": "Consulting work",
@@ -122,44 +140,40 @@ Invoice generated successfully: data/sample_invoice.pdf
 }
 ```
 
-All monetary values are calculated by the tool. Totals are not accepted as input.
+### CSV
 
----
+- Each row represents a line item
+- Metadata (invoice_number, company, client) is derived from JSON template or filename
+- Supports batch processing
 
 ## Testing
 
 Run all tests:
-
 ```bash
 pytest
 ```
 
-Test coverage includes:
+Tests cover:
+- JSON/CSV validation
+- Invoice calculations (line totals, subtotal, tax, total)
+- PDF generation and snapshot comparison
+- CSV/JSON totals export
 
-* JSON input validation
-* Invoice subtotal, tax, and total calculations
-* PDF generation sanity check (file creation)
+Tests are deterministic, do not rely on external services, and validate batch behavior.
 
-Tests are deterministic and do not rely on external services.
+## Design Principles
 
----
-
-## Design Notes
-
-* Validation is explicit and strict (no type coercion)
-* Business logic is pure and side‑effect free
-* PDF rendering is isolated from calculations
-* CLI is thin glue code only
-
-The architecture favors clarity and correctness over flexibility.
-
----
+- Explicit validation, no type coercion
+-  PDF rendering isolated
+- Thin CLI glue layer
+- Deterministic output; reproducible results
 
 ## Limitations & Future Improvements
 
-* Single‑page invoices only
-* Single tax rate per invoice
-* Minimal PDF layout (no themes)
+- Multi-page invoices
+- Multiple tax rates
+- Advanced theming or templating
+- Auto-increment invoice numbering
+- Email sending or payment integration
 
-Potential extensions include invoice auto‑numbering, CSV export, and basic theming, all without changing core logic.
-
+These can be added without changing core logic.
