@@ -1,0 +1,9 @@
+Hi {{first_name}},
+
+I noticed {{company_name}} is working on {{product_area}}.
+
+Our team has helped organizations reduce {{pain_point}} by {{outcome_metric}}.
+
+Would you be open to a short conversation to explore this further?
+
+— {{sender_name}}
