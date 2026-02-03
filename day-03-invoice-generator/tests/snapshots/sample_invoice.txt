@@ -1,23 +1,34 @@
+Bonni Software Ltd
 Invoice #INV-001
 Date: 2026-02-01
-
 Bill From
-Manning Consulting Ltd
+Bonni Software Ltd
 123 Queen Street
-Auckland
-billing@manning.co.nz
-
-Bill To
-Bronson Pieper
-42 Example Road
-Wellington
-
+Auckland 1010
+New Zealand
+accounts@bonnisoftware.dev
 Description
-Consulting services – January
-Qty 10
-Unit Price $150.00
-Amount $1,500.00
-
-Subtotal $1,500.00
-GST (15%) $225.00
-Total $1,725.00
+Backend development (API + integrations)
+Invoice system design & documentation
+Bill To
+Manning Manufacturing Co
+45 Industrial Way
+Wellington 6021
+New Zealand
+finance@manning.co.nz
+Qty Unit Price
+Amount
+24.0
+$120.00
+$2,880.00
+1.0
+$950.00
+$950.00
+Subtotal
+Tax (15%)
+$3,830.00
+$574.50
+Total
+$4,404.50
+Notes
+Payment due within 14 days. Thank you for your business.
