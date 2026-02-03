@@ -1,5 +1,3 @@
-# src/cli.py
-
 import argparse
 import sys
 from pathlib import Path
