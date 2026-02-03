@@ -16,15 +16,16 @@ def normalize_invoice_json(raw_json: dict) -> Invoice:
     if not isinstance(client_data, dict):
         raise InvoiceValidationError("Missing or invalid client/customer data")
 
-    items_data = raw_json.get("line_items") or raw_json.get("items")
-    if not isinstance(items_data, list) or not items_data:
-        raise InvoiceValidationError("Missing or invalid line_items/items data")
+    items_data = raw_json.get("line_items") or raw_json.get("items") or []
+
+    if not isinstance(items_data, list):
+        raise InvoiceValidationError("Invalid line_items/items data")
 
     line_items: List[LineItem] = []
     for item in items_data:
         line_items.append(
             LineItem(
-                description=item.get("description", "").strip(),
+                description=str(item.get("description", "")).strip(),
                 quantity=float(item.get("quantity", 0)),
                 unit_price=float(item.get("unit_price", 0)),
             )

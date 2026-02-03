@@ -3,26 +3,31 @@ class ValidationError(Exception):
     pass
 
 
-def validate_invoice_data(data: dict) -> None:
+def validate_invoice_data(data: dict, *, require_line_items: bool = True) -> None:
     if not isinstance(data, dict):
         raise ValidationError("Invoice data must be a JSON object")
 
-    _validate_required_fields(data)
+    _validate_required_fields(data, require_line_items)
     _validate_company(data["company"])
     _validate_client(data["client"])
-    _validate_line_items(data["line_items"])
+
+    if require_line_items:
+        _validate_line_items(data["line_items"])
+
     _validate_tax_rate(data["tax_rate"])
 
 
-def _validate_required_fields(data: dict) -> None:
+def _validate_required_fields(data: dict, require_line_items: bool) -> None:
     required_fields = [
         "invoice_number",
         "invoice_date",
         "company",
         "client",
-        "line_items",
         "tax_rate",
     ]
+
+    if require_line_items:
+        required_fields.append("line_items")
 
     for field in required_fields:
         if field not in data:
@@ -41,7 +46,7 @@ def _validate_party(party: dict, party_name: str) -> None:
     if not isinstance(party, dict):
         raise ValidationError(f"'{party_name}' must be an object")
 
-    required_fields = ["name", "address", "email"]
+    required_fields = ["name", "address"]
 
     for field in required_fields:
         if field not in party:
@@ -52,6 +57,10 @@ def _validate_party(party: dict, party_name: str) -> None:
             raise ValidationError(
                 f"'{party_name}.{field}' must be a non-empty string"
             )
+
+    email = party.get("email")
+    if email is not None and not isinstance(email, str):
+        raise ValidationError(f"'{party_name}.email' must be a string")
 
 
 def _validate_line_items(items: list) -> None:
@@ -66,7 +75,6 @@ def _validate_line_items(items: list) -> None:
             raise ValidationError(
                 f"Line item at index {index} must be an object"
             )
-
         _validate_line_item(item, index)
 
 

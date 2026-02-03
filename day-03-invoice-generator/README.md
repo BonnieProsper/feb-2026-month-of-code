@@ -162,3 +162,4 @@ The architecture favors clarity and correctness over flexibility.
 * Minimal PDF layout (no themes)
 
 Potential extensions include invoice auto‑numbering, CSV export, and basic theming, all without changing core logic.
+
