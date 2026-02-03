@@ -1,0 +1,23 @@
+Invoice #INV-001
+Date: 2026-02-01
+
+Bill From
+Manning Consulting Ltd
+123 Queen Street
+Auckland
+billing@manning.co.nz
+
+Bill To
+Bronson Pieper
+42 Example Road
+Wellington
+
+Description
+Consulting services – January
+Qty 10
+Unit Price $150.00
+Amount $1,500.00
+
+Subtotal $1,500.00
+GST (15%) $225.00
+Total $1,725.00
