@@ -47,12 +47,12 @@ day-03-invoice-generator/
 │ │ ├── csv_export.py
 │ │ ├── json_export.py
 │ ├── themes.py
-│ └── init.py
+│ └── __init__.py
 ├── tests/
 │ ├── test_pdf_snapshot.py
 │ ├── test_pdf_generation.py
 │ ├── test_calculations.py
-│ └── init.py
+│ └── __init__.py
 ├── data/
 │ ├── sample_invoice.json
 │ └── sample_invoice.pdf
@@ -106,9 +106,11 @@ Export invoice totals:
 ```bash
 python -m src.cli \
   --input "data/invoices/*.json" \
-  --output-dir data/output \
-  --export-totals data/totals.csv
+  --output-dir output/pdfs \
+  --export-totals output/totals.csv
 ```
+
+Generated totals files should not be placed in the same directory as invoice input files when using glob patterns (e.g. data/*.json)
 
 ## Input Formats
 ### JSON
@@ -143,7 +145,7 @@ Line item object:
 ### CSV
 
 - Each row represents a line item
-- Metadata (invoice_number, company, client) is derived from JSON template or filename
+- Metadata (invoice number, date, company, client) is derived from an internal base template and the input filename.
 - Supports batch processing
 
 ## Testing
