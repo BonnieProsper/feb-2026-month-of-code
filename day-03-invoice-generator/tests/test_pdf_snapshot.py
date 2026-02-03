@@ -1,16 +1,10 @@
 from pathlib import Path
 import json
-import io
 
 from pdfminer.high_level import extract_text
 
 from src.normalizer import normalize_invoice_json
-from src.invoice_generator import (
-    Party,
-    LineItem,
-    Invoice,
-    calculate_invoice_totals,
-)
+from src.invoice_generator import Party, LineItem, Invoice
 from src.pdf_utils import generate_invoice_pdf
 from src.validation import validate_invoice_data
 
@@ -36,11 +30,10 @@ def test_invoice_pdf_snapshot():
     validate_invoice_data(raw)
 
     invoice = normalize_invoice_json(raw)
-    calculate_invoice_totals(invoice)
+    invoice.calculate_totals()
     invoice.validate()
 
     generate_invoice_pdf(invoice, str(output_pdf))
-
     assert output_pdf.exists()
 
     extracted = extract_text(str(output_pdf))
@@ -68,13 +61,12 @@ def test_pdf_generation_smoke():
         tax_rate=0.1,
     )
 
-    calculate_invoice_totals(invoice)
+    invoice.calculate_totals()
 
-    buffer = io.BytesIO()
-    generate_invoice_pdf(invoice, buffer)
-    buffer.seek(0)
+    output_pdf = OUTPUT / "smoke_test.pdf"
+    generate_invoice_pdf(invoice, str(output_pdf))
 
-    text = extract_text(buffer)
+    text = extract_text(str(output_pdf))
     assert "TST-001" in text
     assert "Service" in text
     assert "200.00" in text
