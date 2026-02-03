@@ -19,6 +19,8 @@ class LineItem:
     unit_price: float
     line_total: float = field(default=0.0)
 
+class InvoiceValidationError(Exception):
+    pass
 
 @dataclass
 class Invoice:
@@ -28,6 +30,7 @@ class Invoice:
     client: Party
     line_items: List[LineItem]
     tax_rate: float
+    tax_label: str = "Tax"
     subtotal: float = field(default=0.0)
     tax_amount: float = field(default=0.0)
     total: float = field(default=0.0)
@@ -36,6 +39,15 @@ class Invoice:
     currency_symbol: str = "$NZD"
     footer: Optional[str] = "Bank: ANZ 06-1234-5678-9012, SWIFT: ANZBNZ22"
 
+    def validate(self) -> None:
+        if not self.invoice_number:
+            raise InvoiceValidationError("Invoice number required")
+
+        if any(item.quantity <= 0 for item in self.line_items):
+            raise InvoiceValidationError("Line item quantity must be positive")
+
+        if round(self.subtotal + self.tax_amount, 2) != round(self.total, 2):
+            raise InvoiceValidationError("Totals do not reconcile")
 
 def generate_invoice(invoice_data: dict) -> dict:
     """
