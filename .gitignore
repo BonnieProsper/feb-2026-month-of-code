@@ -29,6 +29,9 @@ Thumbs.db
 # Output CSVs
 
 *.csv
+!data/sample_prospects.csv
+
+
 test_site/
 
 TODO.txt
