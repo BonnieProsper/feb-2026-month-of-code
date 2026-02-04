@@ -1,14 +1,9 @@
-# src/loader.py
-
 import csv
 import json
 from pathlib import Path
 from typing import List, Dict
 
-
-class DataLoadError(Exception):
-    pass
-
+from src.errors import DataLoadError
 
 def load_prospects(path: str) -> List[Dict[str, str]]:
     """

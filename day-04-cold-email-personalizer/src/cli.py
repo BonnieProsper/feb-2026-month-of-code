@@ -3,10 +3,10 @@ import sys
 from pathlib import Path
 
 from src.template_engine import extract_placeholders, render_template
-from src.loader import load_prospects, DataLoadError
-from src.validation import validate_prospects, ValidationError
+from src.loader import load_prospects
+from src.validation import validate_prospects
 from src.renderer import render_outputs
-
+from src.errors import DataLoadError, ValidationError
 
 def main() -> None:
     args = _parse_args()

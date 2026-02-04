@@ -1,9 +1,6 @@
 from typing import List, Dict, Set
 
-
-class ValidationError(Exception):
-    pass
-
+from src.errors import ValidationError
 
 def validate_prospects(
     prospects: List[Dict[str, str]],
