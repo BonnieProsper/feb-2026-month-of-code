@@ -28,7 +28,29 @@ def load_prospects(path: str) -> List[Dict[str, str]]:
     if not prospects:
         raise DataLoadError("No prospects found in data file.")
 
+    duplicates = _detect_duplicates(prospects)
+    if duplicates:
+        raise DataLoadError("Duplicate prospects detected in data file.")
+
+
     return prospects
+
+def _detect_duplicates(prospects: list[dict[str, str]]) -> list[str]:
+    seen: set[str] = set()
+    duplicates: list[str] = []
+
+    for prospect in prospects:
+        key = (
+            f'{prospect.get("first_name", "").lower()}::'
+            f'{prospect.get("company", "").lower()}'
+        )
+
+        if key in seen:
+            duplicates.append(key)
+        else:
+            seen.add(key)
+
+    return duplicates
 
 
 def _load_csv(path: Path) -> List[Dict[str, str]]:
