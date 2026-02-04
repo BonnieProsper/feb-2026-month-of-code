@@ -53,6 +53,7 @@ def render_template(
     Missing optional placeholders render as empty strings.
     """
     rendered = template
+    all_placeholders = extract_placeholders(template)
 
     for placeholder in required_placeholders:
         if not context.get(placeholder):
@@ -60,10 +61,10 @@ def render_template(
                 f'Missing required placeholder "{placeholder}".'
             )
 
-    for key in required_placeholders:
+    for placeholder in all_placeholders:
         rendered = rendered.replace(
-            f"{{{{{key}}}}}",
-            context.get(key, ""),
+            f"{{{{{placeholder}}}}}",
+            context.get(placeholder, ""),
         )
 
     return rendered

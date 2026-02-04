@@ -18,22 +18,18 @@ def render_outputs(
     """
     Write rendered emails to disk.
 
-    One file is written per prospect. Optionally, a combined
-    output file is also generated.
+    One file is written per prospect inside a timestamped run directory.
+    Optionally, a combined output file is also generated.
     """
+    if len(rendered_emails) != len(prospects):
+        raise ValueError("Rendered emails and prospects count do not match.")
+
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     run_dir = Path(output_dir) / timestamp
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    rendered_count = 0
-
-    if len(rendered_emails) != len(prospects):
-        raise ValueError("Rendered emails and prospects count do not match.")
-
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-
     used_filenames: set[str] = set()
+    rendered_count = 0
 
     for index, (email, prospect) in enumerate(
         zip(rendered_emails, prospects), start=1
@@ -42,17 +38,20 @@ def render_outputs(
         filename = _deduplicate_filename(base_name, used_filenames)
         used_filenames.add(filename)
 
-        file_path = output_path / f"{filename}.txt"
+        file_path = run_dir / f"{filename}.txt"
         file_path.write_text(email, encoding="utf-8")
+        rendered_count += 1
 
     if combined_output_path:
+        combined_path = Path(combined_output_path)
+        if combined_path.is_dir():
+            combined_path = combined_path / "combined.txt"
+
         _write_combined_output(
             rendered_emails,
             prospects,
-            Path(combined_output_path),
+            combined_path,
         )
-
-    rendered_count += 1
 
     return {
         "rendered": rendered_count,

@@ -6,7 +6,8 @@ from src.template_engine import extract_placeholders, render_template
 from src.loader import load_prospects
 from src.validation import validate_prospects
 from src.renderer import render_outputs
-from src.errors import DataLoadError, ValidationError
+from src.errors import DataLoadError, ValidationError, TemplateError
+
 
 def main() -> None:
     args = _parse_args()
@@ -18,19 +19,43 @@ def main() -> None:
         prospects = load_prospects(args.data)
         validate_prospects(prospects, placeholders)
 
+        if args.preview:
+            index = args.preview - 1
+            if index < 0 or index >= len(prospects):
+                raise ValidationError(
+                    f"Preview index {args.preview} is out of range."
+                )
+
+            rendered = render_template(
+                template_text,
+                prospects[index],
+                required_placeholders=placeholders,
+            )
+            print(rendered)
+            return
+
         rendered_emails = [
-            render_template(template_text, prospect)
+            render_template(
+                template_text,
+                prospect,
+                required_placeholders=placeholders,
+            )
             for prospect in prospects
         ]
 
-        render_outputs(
+        metrics = render_outputs(
             rendered_emails=rendered_emails,
             prospects=prospects,
             output_dir=args.output_dir,
             combined_output_path=args.combined_output,
         )
 
-    except (DataLoadError, ValidationError, FileNotFoundError) as exc:
+        print(
+            f"Rendered {metrics['rendered']} emails "
+            f"({metrics['skipped']} skipped)."
+        )
+
+    except (DataLoadError, ValidationError, TemplateError, FileNotFoundError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
@@ -61,6 +86,18 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--combined-output",
         help="Optional path to write all emails into a single file.",
+    )
+
+    parser.add_argument(
+        "--preview",
+        type=int,
+        help="Render a single prospect to stdout (1-based index).",
+    )
+
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print progress and warnings.",
     )
 
     return parser.parse_args()

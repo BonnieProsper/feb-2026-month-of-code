@@ -40,10 +40,14 @@ def _detect_duplicates(prospects: list[dict[str, str]]) -> list[str]:
     duplicates: list[str] = []
 
     for prospect in prospects:
-        key = (
-            f'{prospect.get("first_name", "").lower()}::'
-            f'{prospect.get("company", "").lower()}'
-        )
+        email = prospect.get("email", "").strip().lower()
+
+        if email:
+            key = f"email::{email}"
+        else:
+            first_name = prospect.get("first_name", "").strip().lower()
+            company = prospect.get("company", "").strip().lower()
+            key = f"{first_name}::{company}"
 
         if key in seen:
             duplicates.append(key)
