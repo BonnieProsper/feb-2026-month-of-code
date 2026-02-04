@@ -1,11 +1,12 @@
+# src/cli.py
+
 import argparse
 import sys
 from pathlib import Path
-from typing import List, Dict
 
-from src.template_engine import extract_placeholders, render_template
 from src.loader import load_prospects
 from src.validation import validate_prospects
+from src.template_engine import parse_template
 from src.renderer import render_outputs
 from src.errors import DataLoadError, ValidationError, TemplateError
 
@@ -15,81 +16,92 @@ def main() -> None:
 
     try:
         template_text = _read_template(args.template)
-        placeholders = extract_placeholders(template_text)
+        parsed_template = parse_template(template_text)
 
         prospects = load_prospects(args.data)
-        validate_prospects(prospects, placeholders)
 
-        # Deterministic ordering for stable output
-        prospects = sorted(
-            prospects,
-            key=lambda p: (p.get("company", ""), p.get("first_name", "")),
+        validation_result = validate_prospects(
+            prospects=prospects,
+            required_fields=parsed_template.placeholders,
         )
 
+        valid_prospects = validation_result.valid_prospects
+
+        if args.verbose:
+            for skipped in validation_result.skipped_prospects:
+                company = skipped.prospect.get("company", "<unknown>")
+                print(
+                    f"Skipping prospect #{skipped.index} ({company}): {skipped.reason}",
+                    file=sys.stderr,
+                )
+
+        # -----------------------------
+        # Preview mode
+        # -----------------------------
         if args.preview:
             _handle_preview(
-                template_text,
-                prospects,
-                placeholders,
-                args.preview,
-            )
-            return
-
-        rendered_emails: List[str] = []
-        skipped = 0
-
-        for prospect in prospects:
-            try:
-                rendered_emails.append(
-                    render_template(
-                        template_text,
-                        prospect,
-                        required_placeholders=placeholders,
-                    )
-                )
-            except TemplateError:
-                skipped += 1
-                if args.verbose:
-                    print(
-                        f"Skipping prospect: {prospect}",
-                        file=sys.stderr,
-                    )
-
-        if not rendered_emails:
-            print("No emails rendered.", file=sys.stderr)
-            sys.exit(2)
-
-        if args.dry_run:
-            print(
-                f"Dry run: {len(rendered_emails)} emails would be rendered "
-                f"({skipped} skipped)."
+                parsed_template=parsed_template,
+                prospects=valid_prospects,
+                preview_index=args.preview,
             )
             sys.exit(0)
 
+        if not valid_prospects:
+            print("All prospects were skipped.", file=sys.stderr)
+            sys.exit(2)
+
+        output_dir = args.output_dir or "outputs"
+
         metrics = render_outputs(
-            rendered_emails=rendered_emails,
-            prospects=prospects[: len(rendered_emails)],
-            output_dir=args.output_dir,
+            parsed_templates=[parsed_template] * len(valid_prospects),
+            prospects=valid_prospects,
+            output_dir=output_dir,
+            export_format=args.format,
             combined_output_path=args.combined_output,
+            dry_run=args.dry_run,
         )
+
+        # -----------------------------
+        # Dry run reporting
+        # -----------------------------
+        if args.dry_run:
+            print("Dry run complete")
+            print(
+                f"Valid prospects: {len(valid_prospects)} | "
+                f"Rendered: {metrics['rendered']} | "
+                f"Skipped: {metrics['skipped']}"
+            )
+            sys.exit(0)
 
         print(
             f"Rendered {metrics['rendered']} emails "
             f"({metrics['skipped']} skipped)."
         )
-        print(f"Output directory: {args.output_dir}")
+        print(f"Output directory: {output_dir}")
+
+        if metrics["rendered"] == 0:
+            sys.exit(2)
 
         sys.exit(0)
 
-    except (DataLoadError, ValidationError, TemplateError, FileNotFoundError) as exc:
+    except (
+        DataLoadError,
+        ValidationError,
+        TemplateError,
+        FileNotFoundError,
+        ValueError,
+    ) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
 
+# -----------------------------
+# Helpers
+# -----------------------------
+
 def _handle_preview(
-    template_text: str,
-    prospects: List[Dict[str, str]],
-    placeholders: set[str],
+    parsed_template,
+    prospects,
     preview_index: int,
 ) -> None:
     index = preview_index - 1
@@ -98,12 +110,22 @@ def _handle_preview(
             f"Preview index {preview_index} is out of range."
         )
 
-    rendered = render_template(
-        template_text,
-        prospects[index],
-        required_placeholders=placeholders,
-    )
-    print(rendered)
+    prospect = prospects[index]
+
+    body = parsed_template.body
+    for placeholder in parsed_template.placeholders:
+        body = body.replace(
+            f"{{{{{placeholder}}}}}",
+            prospect.get(placeholder, ""),
+        )
+
+    if parsed_template.headers:
+        headers = "\n".join(
+            f"{k}: {v}" for k, v in parsed_template.headers.items()
+        )
+        print(headers + "\n\n" + body)
+    else:
+        print(body)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -114,7 +136,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--template",
         required=True,
-        help="Path to the email template file (.txt or .md).",
+        help="Path to the email template file.",
     )
 
     parser.add_argument(
@@ -125,13 +147,19 @@ def _parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--output-dir",
-        required=True,
-        help="Directory to write rendered emails.",
+        help="Base output directory (default: ./outputs).",
+    )
+
+    parser.add_argument(
+        "--format",
+        default="txt",
+        choices=["txt", "md", "html", "eml", "csv"],
+        help="Output format.",
     )
 
     parser.add_argument(
         "--combined-output",
-        help="Optional path to write all emails into a single file.",
+        help="Optional combined output file path.",
     )
 
     parser.add_argument(
@@ -143,13 +171,13 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Validate and report without writing any files.",
+        help="Validate and report without writing files.",
     )
 
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Print progress and warnings.",
+        help="Print skipped prospects and warnings.",
     )
 
     return parser.parse_args()
