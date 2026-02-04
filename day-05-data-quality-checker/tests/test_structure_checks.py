@@ -1,5 +1,5 @@
 import pandas as pd
-from checks.structure import check_missing_required_columns
+from src.checks.structure import check_missing_required_columns
 
 
 def test_missing_required_columns_fails():

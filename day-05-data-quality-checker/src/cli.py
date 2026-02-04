@@ -11,6 +11,12 @@ from checks.completeness import (
     check_missing_values,
     check_empty_rows,
 )
+from checks.sanity import (
+    check_duplicate_rows,
+    check_constant_columns,
+    check_numeric_ranges,
+)
+
 
 
 def main() -> int:
@@ -51,6 +57,27 @@ def main() -> int:
         check_empty_rows(df)
     )
 
+        thresholds = schema.get("thresholds", {}) if args.config else {}
+
+    duplicate_fail = thresholds.get("duplicate_fail", 0.05)
+    dominance_warn = thresholds.get("dominance_warn", 0.99)
+    range_fail = thresholds.get("range_fail", 0.01)
+
+    results.append(
+        check_duplicate_rows(df, duplicate_fail)
+    )
+    results.append(
+        check_constant_columns(df, dominance_warn)
+    )
+
+    if args.config and "numeric_ranges" in schema:
+        results.append(
+            check_numeric_ranges(
+                df,
+                schema["numeric_ranges"],
+                range_fail,
+            )
+        )
 
     for r in results:
         print(r)

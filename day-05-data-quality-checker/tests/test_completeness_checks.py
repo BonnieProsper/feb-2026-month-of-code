@@ -1,5 +1,5 @@
 import pandas as pd
-from checks.completeness import check_missing_values
+from src.checks.completeness import check_missing_values
 
 
 def test_fully_missing_column_fails():
