@@ -5,6 +5,12 @@ from pathlib import Path
 from src.renderer import render_outputs
 
 
+def _get_run_dir(output_dir: Path) -> Path:
+    runs = list(output_dir.iterdir())
+    assert len(runs) == 1
+    return runs[0]
+
+
 def test_renders_individual_files(tmp_path: Path):
     rendered = [
         "Email for Sam",
@@ -20,8 +26,8 @@ def test_renders_individual_files(tmp_path: Path):
 
     render_outputs(rendered, prospects, str(output_dir))
 
-    files = list(output_dir.iterdir())
-    filenames = sorted(f.name for f in files)
+    run_dir = _get_run_dir(output_dir)
+    filenames = sorted(f.name for f in run_dir.iterdir())
 
     assert filenames == [
         "jordan_manning.txt",
@@ -44,7 +50,8 @@ def test_handles_filename_collisions(tmp_path: Path):
 
     render_outputs(rendered, prospects, str(output_dir))
 
-    filenames = sorted(f.name for f in output_dir.iterdir())
+    run_dir = _get_run_dir(output_dir)
+    filenames = sorted(f.name for f in run_dir.iterdir())
 
     assert filenames == [
         "sam_manning.txt",

@@ -1,6 +1,9 @@
 # tests/test_template_rendering.py
 
+import pytest
+
 from src.template_engine import extract_placeholders, render_template
+from src.errors import TemplateError
 
 
 def test_extracts_unique_placeholders():
@@ -36,11 +39,18 @@ def test_renders_template_with_context():
         "recent_event": "launching a new platform",
     }
 
-    rendered = render_template(template, context)
+    placeholders = extract_placeholders(template)
 
-    assert "Sam" in rendered
-    assert "Manning" in rendered
-    assert "launching a new platform" in rendered
+    rendered = render_template(
+        template,
+        context,
+        required_placeholders=placeholders,
+    )
+
+    assert rendered == (
+        "Hi Sam,\n\n"
+        "Congrats to Manning on launching a new platform."
+    )
 
 
 def test_renders_repeated_placeholders():
@@ -51,6 +61,27 @@ def test_renders_repeated_placeholders():
         "company": "Manning",
     }
 
-    rendered = render_template(template, context)
+    placeholders = extract_placeholders(template)
+
+    rendered = render_template(
+        template,
+        context,
+        required_placeholders=placeholders,
+    )
 
     assert rendered == "Jordan from Manning — thanks Jordan."
+
+
+def test_missing_required_placeholder_raises():
+    template = "Hi {{first_name}} from {{company}}"
+
+    context = {"first_name": "Sam"}
+
+    placeholders = extract_placeholders(template)
+
+    with pytest.raises(TemplateError):
+        render_template(
+            template,
+            context,
+            required_placeholders=placeholders,
+        )

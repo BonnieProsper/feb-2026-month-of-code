@@ -1,6 +1,9 @@
+# tests/test_validation.py
+
 import pytest
 
-from src.validation import validate_prospects, ValidationError
+from src.validation import validate_prospects
+from src.errors import ValidationError
 
 
 def test_valid_prospects_pass_validation():
@@ -14,6 +17,7 @@ def test_valid_prospects_pass_validation():
 
     required_fields = {"first_name", "company", "recent_event"}
 
+    # Should not raise
     validate_prospects(prospects, required_fields)
 
 

@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 import pytest
 
-from src.loader import load_prospects, DataLoadError
+from src.loader import load_prospects
+from src.errors import DataLoadError
 
 
 def test_loads_csv_prospects(tmp_path: Path):
@@ -52,3 +53,15 @@ def test_rejects_unsupported_format(tmp_path: Path):
 
     with pytest.raises(DataLoadError):
         load_prospects(str(txt_file))
+
+
+def test_rejects_duplicate_prospects(tmp_path: Path):
+    csv_file = tmp_path / "dupes.csv"
+    csv_file.write_text(
+        "first_name,company,email\n"
+        "Sam,Manning,sam@manning.com\n"
+        "Sam,Manning,sam@manning.com\n"
+    )
+
+    with pytest.raises(DataLoadError):
+        load_prospects(str(csv_file))
