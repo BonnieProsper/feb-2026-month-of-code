@@ -21,7 +21,7 @@ def test_valid_prospects_pass_validation():
     validate_prospects(prospects, required_fields)
 
 
-def test_missing_required_field_raises_error():
+def test_missing_required_field_is_skipped():
     prospects = [
         {
             "first_name": "Sam",
@@ -31,10 +31,11 @@ def test_missing_required_field_raises_error():
 
     required_fields = {"first_name", "company", "recent_event"}
 
-    with pytest.raises(ValidationError) as exc:
-        validate_prospects(prospects, required_fields)
+    result = validate_prospects(prospects, required_fields)
 
-    assert 'Missing required field "recent_event"' in str(exc.value)
+    assert len(result.valid_prospects) == 0
+    assert len(result.skipped_prospects) == 1
+    assert 'Missing required field "recent_event"' in result.skipped_prospects[0].reason
 
 
 def test_empty_value_is_treated_as_missing():
@@ -48,8 +49,10 @@ def test_empty_value_is_treated_as_missing():
 
     required_fields = {"recent_event"}
 
-    with pytest.raises(ValidationError):
-        validate_prospects(prospects, required_fields)
+    result = validate_prospects(prospects, required_fields)
+
+    assert len(result.valid_prospects) == 0
+    assert len(result.skipped_prospects) == 1
 
 
 def test_error_message_includes_company_when_available():
@@ -62,7 +65,7 @@ def test_error_message_includes_company_when_available():
 
     required_fields = {"recent_event"}
 
-    with pytest.raises(ValidationError) as exc:
-        validate_prospects(prospects, required_fields)
+    result = validate_prospects(prospects, required_fields)
 
-    assert "company=Manning" in str(exc.value)
+    assert len(result.skipped_prospects) == 1
+    assert "company=Manning" in result.skipped_prospects[0].reason

@@ -40,7 +40,11 @@ def test_renders_individual_files(tmp_path: Path):
     )
 
     run_dir = _get_run_dir(output_dir)
-    filenames = sorted(f.name for f in run_dir.iterdir())
+    filenames = sorted(
+        f.name
+        for f in run_dir.iterdir()
+        if f.suffix != ".json"
+    )
 
     assert filenames == [
         "jordan_manning.txt",
@@ -68,7 +72,11 @@ def test_handles_filename_collisions(tmp_path: Path):
     )
 
     run_dir = _get_run_dir(output_dir)
-    filenames = sorted(f.name for f in run_dir.iterdir())
+    filenames = sorted(
+        f.name
+        for f in run_dir.iterdir()
+        if f.suffix != ".json"
+    )
 
     assert filenames == [
         "sam_manning.txt",
