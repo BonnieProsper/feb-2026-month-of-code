@@ -26,11 +26,12 @@ Thumbs.db
 
 .pytest_cache/
 
-# Output CSVs
+# Generated Outputs
 
 *.csv
 !data/sample_prospects.csv
 
+outputs/
 
 test_site/
 

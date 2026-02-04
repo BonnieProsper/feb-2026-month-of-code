@@ -64,6 +64,7 @@ def main() -> None:
         # -----------------------------
         # Dry run reporting
         # -----------------------------
+        
         if args.dry_run:
             print("Dry run complete")
             print(
@@ -73,10 +74,15 @@ def main() -> None:
             )
             sys.exit(0)
 
+        total_skipped = (
+            validation_result.skipped_count + metrics["skipped"]
+        )
+
         print(
             f"Rendered {metrics['rendered']} emails "
-            f"({metrics['skipped']} skipped)."
+            f"({total_skipped} skipped)."
         )
+
         print(f"Output directory: {output_dir}")
 
         if metrics["rendered"] == 0:

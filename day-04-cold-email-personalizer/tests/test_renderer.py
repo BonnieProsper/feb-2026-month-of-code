@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from src.renderer import render_outputs
+from src.types import ParsedTemplate
 
 
 def _get_run_dir(output_dir: Path) -> Path:
@@ -11,10 +12,18 @@ def _get_run_dir(output_dir: Path) -> Path:
     return runs[0]
 
 
+def _template(body: str) -> ParsedTemplate:
+    return ParsedTemplate(
+        headers={},
+        body=body,
+        placeholders=set(),
+    )
+
+
 def test_renders_individual_files(tmp_path: Path):
-    rendered = [
-        "Email for Sam",
-        "Email for Jordan",
+    parsed_templates = [
+        _template("Email for Sam"),
+        _template("Email for Jordan"),
     ]
 
     prospects = [
@@ -24,7 +33,11 @@ def test_renders_individual_files(tmp_path: Path):
 
     output_dir = tmp_path / "outputs"
 
-    render_outputs(rendered, prospects, str(output_dir))
+    render_outputs(
+        parsed_templates=parsed_templates,
+        prospects=prospects,
+        output_dir=str(output_dir),
+    )
 
     run_dir = _get_run_dir(output_dir)
     filenames = sorted(f.name for f in run_dir.iterdir())
@@ -36,9 +49,9 @@ def test_renders_individual_files(tmp_path: Path):
 
 
 def test_handles_filename_collisions(tmp_path: Path):
-    rendered = [
-        "Email one",
-        "Email two",
+    parsed_templates = [
+        _template("Email one"),
+        _template("Email two"),
     ]
 
     prospects = [
@@ -48,7 +61,11 @@ def test_handles_filename_collisions(tmp_path: Path):
 
     output_dir = tmp_path / "outputs"
 
-    render_outputs(rendered, prospects, str(output_dir))
+    render_outputs(
+        parsed_templates=parsed_templates,
+        prospects=prospects,
+        output_dir=str(output_dir),
+    )
 
     run_dir = _get_run_dir(output_dir)
     filenames = sorted(f.name for f in run_dir.iterdir())
@@ -60,9 +77,9 @@ def test_handles_filename_collisions(tmp_path: Path):
 
 
 def test_writes_combined_output(tmp_path: Path):
-    rendered = [
-        "Email for Sam",
-        "Email for Jordan",
+    parsed_templates = [
+        _template("Email for Sam"),
+        _template("Email for Jordan"),
     ]
 
     prospects = [
@@ -74,9 +91,9 @@ def test_writes_combined_output(tmp_path: Path):
     combined_file = tmp_path / "combined.txt"
 
     render_outputs(
-        rendered,
-        prospects,
-        str(output_dir),
+        parsed_templates=parsed_templates,
+        prospects=prospects,
+        output_dir=str(output_dir),
         combined_output_path=str(combined_file),
     )
 
