@@ -1,6 +1,12 @@
 import re
+from datetime import datetime
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, TypedDict
+
+
+class RenderMetrics(TypedDict):
+    rendered: int
+    skipped: int
 
 
 def render_outputs(
@@ -8,13 +14,19 @@ def render_outputs(
     prospects: List[Dict[str, str]],
     output_dir: str,
     combined_output_path: str | None = None,
-) -> None:
+) -> RenderMetrics:
     """
     Write rendered emails to disk.
 
     One file is written per prospect. Optionally, a combined
     output file is also generated.
     """
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    run_dir = Path(output_dir) / timestamp
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    rendered_count = 0
+
     if len(rendered_emails) != len(prospects):
         raise ValueError("Rendered emails and prospects count do not match.")
 
@@ -39,6 +51,13 @@ def render_outputs(
             prospects,
             Path(combined_output_path),
         )
+
+    rendered_count += 1
+
+    return {
+        "rendered": rendered_count,
+        "skipped": len(prospects) - rendered_count,
+    }
 
 
 def _build_base_filename(prospect: Dict[str, str], index: int) -> str:
