@@ -1,5 +1,5 @@
 import pandas as pd
-from checks.types import check_mixed_type_columns
+from src.checks.types import check_mixed_type_columns
 
 
 def test_mixed_type_column_warns():
