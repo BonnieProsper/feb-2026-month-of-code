@@ -16,6 +16,11 @@ from checks.sanity import (
     check_constant_columns,
     check_numeric_ranges,
 )
+from checks.types import (
+    check_mixed_type_columns,
+    check_numeric_like_strings,
+)
+
 
 
 
@@ -57,7 +62,7 @@ def main() -> int:
         check_empty_rows(df)
     )
 
-        thresholds = schema.get("thresholds", {}) if args.config else {}
+    thresholds = schema.get("thresholds", {}) if args.config else {}
 
     duplicate_fail = thresholds.get("duplicate_fail", 0.05)
     dominance_warn = thresholds.get("dominance_warn", 0.99)
@@ -78,6 +83,14 @@ def main() -> int:
                 range_fail,
             )
         )
+
+    results.append(
+        check_mixed_type_columns(df)
+    )
+    results.append(
+        check_numeric_like_strings(df)
+    )
+
 
     for r in results:
         print(r)
