@@ -1,7 +1,14 @@
 import re
+import csv
+import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, TypedDict
+from typing import List, Dict, TypedDict, Literal
+
+from src.types import ParsedTemplate
+from src.run_metadata import write_run_metadata
+
+ExportFormat = Literal["txt", "md", "html", "eml", "csv"]
 
 
 class RenderMetrics(TypedDict):
@@ -9,54 +16,149 @@ class RenderMetrics(TypedDict):
     skipped: int
 
 
+class RenderedProspect(TypedDict):
+    content: str
+    prospect: Dict[str, str]
+    filename: str
+
+
 def render_outputs(
-    rendered_emails: List[str],
+    parsed_templates: List[ParsedTemplate],
     prospects: List[Dict[str, str]],
     output_dir: str,
+    export_format: ExportFormat = "txt",
     combined_output_path: str | None = None,
+    dry_run: bool = False,
 ) -> RenderMetrics:
     """
-    Write rendered emails to disk.
+    Render parsed templates with prospect data and write outputs.
 
-    One file is written per prospect inside a timestamped run directory.
-    Optionally, a combined output file is also generated.
+    Supports:
+    - Timestamped run directories
+    - Deterministic ordering
+    - Dry-run mode
+    - Partial success
+    - Multiple export formats
     """
-    if len(rendered_emails) != len(prospects):
-        raise ValueError("Rendered emails and prospects count do not match.")
+    if len(parsed_templates) != len(prospects):
+        raise ValueError("Templates and prospects count do not match.")
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     run_dir = Path(output_dir) / timestamp
-    run_dir.mkdir(parents=True, exist_ok=True)
+
+    if not dry_run:
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+    ordered = sorted(
+        zip(parsed_templates, prospects),
+        key=lambda p: (p[1].get("company", ""), p[1].get("first_name", "")),
+    )
 
     used_filenames: set[str] = set()
     rendered_count = 0
+    skipped_count = 0
+    skipped_reasons: List[str] = []
 
-    for index, (email, prospect) in enumerate(
-        zip(rendered_emails, prospects), start=1
-    ):
-        base_name = _build_base_filename(prospect, index)
-        filename = _deduplicate_filename(base_name, used_filenames)
-        used_filenames.add(filename)
+    rendered_prospects: List[RenderedProspect] = []
 
-        file_path = run_dir / f"{filename}.txt"
-        file_path.write_text(email, encoding="utf-8")
-        rendered_count += 1
+    for index, (parsed, prospect) in enumerate(ordered, start=1):
+        try:
+            base_name = _build_base_filename(prospect, index)
+            filename = _deduplicate_filename(base_name, used_filenames)
+            used_filenames.add(filename)
 
-    if combined_output_path:
+            content = _render_parsed_template(parsed, prospect)
+
+            if not dry_run:
+                _write_file(
+                    content=content,
+                    path=run_dir / f"{filename}.{export_format}",
+                    export_format=export_format,
+                    prospect=prospect,
+                )
+
+            rendered_prospects.append(
+                {
+                    "content": content,
+                    "prospect": prospect,
+                    "filename": filename,
+                }
+            )
+            rendered_count += 1
+
+        except Exception as exc:
+            skipped_count += 1
+            skipped_reasons.append(
+                f"{_describe_prospect(prospect, index)} skipped: {exc}"
+            )
+
+    if combined_output_path and not dry_run:
         combined_path = Path(combined_output_path)
         if combined_path.is_dir():
-            combined_path = combined_path / "combined.txt"
+            combined_path = combined_path / f"combined.{export_format}"
+        _write_combined_output(rendered_prospects, combined_path)
 
-        _write_combined_output(
-            rendered_emails,
-            prospects,
-            combined_path,
+    if not dry_run:
+        write_run_metadata(
+            run_dir=run_dir,
+            timestamp=timestamp,
+            template_hash=_hash_template_contents(parsed_templates),
+            input_file="unknown",
+            rendered_count=rendered_count,
+            skipped_count=skipped_count,
+            skipped_reasons=skipped_reasons,
         )
 
     return {
         "rendered": rendered_count,
-        "skipped": len(prospects) - rendered_count,
+        "skipped": skipped_count,
     }
+
+
+# ------------------------------
+# Helpers
+# ------------------------------
+
+def _render_parsed_template(parsed: ParsedTemplate, context: Dict[str, str]) -> str:
+    body = parsed.body
+    for placeholder in parsed.placeholders:
+        body = body.replace(f"{{{{{placeholder}}}}}", context.get(placeholder, ""))
+
+    if parsed.headers:
+        headers = "\n".join(f"{k}: {v}" for k, v in parsed.headers.items())
+        return f"{headers}\n\n{body}"
+
+    return body
+
+
+def _write_file(
+    *,
+    content: str,
+    path: Path,
+    export_format: ExportFormat,
+    prospect: Dict[str, str],
+) -> None:
+    if export_format == "csv":
+        with path.open("w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["content"])
+            writer.writerow([content])
+        return
+
+    path.write_text(content, encoding="utf-8")
+
+
+def _write_combined_output(
+    rendered_prospects: List[RenderedProspect],
+    path: Path,
+) -> None:
+    sections: List[str] = []
+
+    for index, rp in enumerate(rendered_prospects, start=1):
+        header = _describe_prospect(rp["prospect"], index)
+        sections.append(f"----- {header} -----\n{rp['content']}")
+
+    path.write_text("\n\n".join(sections), encoding="utf-8")
 
 
 def _build_base_filename(prospect: Dict[str, str], index: int) -> str:
@@ -88,26 +190,12 @@ def _deduplicate_filename(base: str, used: set[str]) -> str:
     return f"{base}_{counter}"
 
 
-def _write_combined_output(
-    rendered_emails: List[str],
-    prospects: List[Dict[str, str]],
-    path: Path,
-) -> None:
-    sections: List[str] = []
-
-    for index, (email, prospect) in enumerate(
-        zip(rendered_emails, prospects), start=1
-    ):
-        header = _describe_prospect(prospect, index)
-        sections.append(
-            f"----- {header} -----\n{email}"
-        )
-
-    content = "\n\n".join(sections)
-    path.write_text(content, encoding="utf-8")
-
-
 def _describe_prospect(prospect: Dict[str, str], index: int) -> str:
     if prospect.get("company"):
         return f'prospect #{index} (company={prospect["company"]})'
     return f"prospect #{index}"
+
+
+def _hash_template_contents(parsed_templates: List[ParsedTemplate]) -> str:
+    combined = "".join(t.body for t in parsed_templates)
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()
