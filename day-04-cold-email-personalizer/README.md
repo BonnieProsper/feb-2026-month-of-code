@@ -109,3 +109,17 @@ pytest
 ```
 
 Type checking is clean under Pylance/Pyright.
+
+## Design Decisions
+
+- **Strict placeholders**  
+  Templates fail fast if required fields are missing, preventing silent personalization errors.
+
+- **Timestamped output runs**  
+  Each execution writes to a unique directory to avoid overwriting previous campaigns and to support auditability.
+
+- **CSV / JSON only**  
+  Common, explicit formats keep the tool predictable and easy to integrate into existing workflows.
+
+- **Fail-fast validation**  
+  Data issues are surfaced early with clear errors to avoid generating incorrect outreach.
