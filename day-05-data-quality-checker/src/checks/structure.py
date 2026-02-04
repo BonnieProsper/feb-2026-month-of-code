@@ -31,3 +31,34 @@ def check_missing_required_columns(
         "status": "pass",
         "details": {},
     }
+
+
+def check_unexpected_columns(
+    df: pd.DataFrame,
+    required_columns: Iterable[str],
+) -> Dict[str, Any]:
+    """
+    Identify columns not declared in the expected schema.
+
+    Extra columns often indicate upstream joins or schema drift.
+    """
+    required = set(required_columns)
+    present = set(df.columns)
+
+    unexpected = sorted(present - required)
+
+    if unexpected:
+        return {
+            "name": "unexpected_columns",
+            "status": "warn",
+            "details": {
+                "unexpected": unexpected
+            },
+        }
+
+    return {
+        "name": "unexpected_columns",
+        "status": "pass",
+        "details": {},
+    }
+

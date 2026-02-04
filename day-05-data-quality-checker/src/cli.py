@@ -1,19 +1,41 @@
+import argparse
 import sys
+
 from loader import load_csv
-from checks.structure import check_missing_required_columns
+from schema import load_schema
+from checks.structure import (
+    check_missing_required_columns,
+    check_unexpected_columns,
+)
 
 
 def main() -> int:
-    csv_path = sys.argv[1]
+    parser = argparse.ArgumentParser(description="Dataset quality checker")
+    parser.add_argument("csv_path")
+    parser.add_argument("--config", required=False)
 
-    df = load_csv(csv_path)
+    args = parser.parse_args()
 
-    result = check_missing_required_columns(
-        df,
-        required_columns=["id", "email"]
-    )
+    df = load_csv(args.csv_path)
 
-    print(result)
+    if args.config:
+        schema = load_schema(args.config)
+        required_columns = schema.get("required_columns", [])
+    else:
+        required_columns = []
+
+    results = []
+
+    if required_columns:
+        results.append(
+            check_missing_required_columns(df, required_columns)
+        )
+        results.append(
+            check_unexpected_columns(df, required_columns)
+        )
+
+    for r in results:
+        print(r)
 
     return 0
 
