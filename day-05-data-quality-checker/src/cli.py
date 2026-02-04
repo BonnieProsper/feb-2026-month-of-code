@@ -7,6 +7,10 @@ from checks.structure import (
     check_missing_required_columns,
     check_unexpected_columns,
 )
+from checks.completeness import (
+    check_missing_values,
+    check_empty_rows,
+)
 
 
 def main() -> int:
@@ -33,6 +37,20 @@ def main() -> int:
         results.append(
             check_unexpected_columns(df, required_columns)
         )
+
+        missing_warn = 0.05
+    if args.config:
+        missing_warn = schema.get("thresholds", {}).get(
+            "missing_warn", missing_warn
+        )
+
+    results.append(
+        check_missing_values(df, missing_warn)
+    )
+    results.append(
+        check_empty_rows(df)
+    )
+
 
     for r in results:
         print(r)
