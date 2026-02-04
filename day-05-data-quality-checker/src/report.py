@@ -1,14 +1,55 @@
 import json
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 import pandas as pd
 
+
+def _load_baseline(path: str) -> Dict:
+    baseline_file = Path(path)
+    if not baseline_file.exists():
+        raise FileNotFoundError(f"Baseline report not found: {path}")
+    return json.loads(baseline_file.read_text())
+
+
+def _compare_to_baseline(current: Dict, baseline: Dict) -> Dict:
+    comparison = {
+        "health_score_delta": None,
+        "warnings_delta": None,
+        "failures_delta": None,
+        "regression": False,
+    }
+
+    try:
+        comparison["health_score_delta"] = (
+            current["dataset"]["health_score"]
+            - baseline["dataset"]["health_score"]
+        )
+        comparison["warnings_delta"] = (
+            current["summary"]["warnings"]
+            - baseline["summary"]["warnings"]
+        )
+        comparison["failures_delta"] = (
+            current["summary"]["failures"]
+            - baseline["summary"]["failures"]
+        )
+
+        if (
+            comparison["health_score_delta"] < 0
+            or comparison["failures_delta"] > 0
+        ):
+            comparison["regression"] = True
+
+    except KeyError:
+        raise ValueError("Baseline report structure is incompatible")
+
+    return comparison
 
 def generate_report(
     df: pd.DataFrame,
     results: List[Dict],
     output_path: str,
     strict: bool = False,
+    baseline_path: Optional[str] = None,
 ) -> int:
     """
     Generate a dataset-level report for console and JSON output.
@@ -87,6 +128,16 @@ def generate_report(
         "columns": columns_summary,
     }
 
+    baseline_comparison = None
+    if baseline_path:
+        baseline = _load_baseline(baseline_path)
+        baseline_comparison = _compare_to_baseline(report, baseline)
+        report["baseline_comparison"] = baseline_comparison
+
+        if baseline_comparison["regression"]:
+            if strict or baseline_comparison["failures_delta"] > 0:
+                exit_code = 2
+
     output_file = Path(output_path)
     output_file.write_text(json.dumps(report, indent=4))
 
@@ -105,6 +156,18 @@ def generate_report(
         if r["status"] != "pass" and isinstance(r.get("details"), dict):
             extra = f" ({len(r['details'])} columns affected)"
         print(f"{symbol} {r['name']}{extra}")
+
+    if baseline_comparison:
+        print("\nBaseline comparison:")
+        print(
+            f"Health score change: {baseline_comparison['health_score_delta']}"
+        )
+        print(
+            f"Warnings change: {baseline_comparison['warnings_delta']}, "
+            f"Failures change: {baseline_comparison['failures_delta']}"
+        )
+        if baseline_comparison["regression"]:
+            print("Regression detected")
 
     if strict:
         print("\nStrict mode enabled: warnings are treated as failures")

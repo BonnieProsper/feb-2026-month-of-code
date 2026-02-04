@@ -17,6 +17,11 @@ def main() -> int:
         action="store_true",
         help="Fail the run if any warnings are detected",
     )
+    parser.add_argument(
+        "--baseline",
+        help="Path to a previous JSON report to compare against",
+    )
+
     args = parser.parse_args()
 
     df = load_csv(args.csv_path)
@@ -53,6 +58,7 @@ def main() -> int:
         results,
         output_path="report.json",
         strict=args.strict,
+        baseline_path=args.baseline,
     )
 
 
