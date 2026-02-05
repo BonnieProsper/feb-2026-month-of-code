@@ -3,6 +3,7 @@ import sys
 
 from .spf import analyze_spf
 from .report import normalize_findings, format_console_report, format_json_report
+from .dmarc import analyze_dmarc
 
 
 def main() -> int:
@@ -24,8 +25,10 @@ def main() -> int:
 
     raw_findings = []
 
-    # SPF
+    # SPF and dmarc
     raw_findings.extend(analyze_spf(args.domain))
+    raw_findings.extend(analyze_dmarc(args.domain))
+
 
     findings = normalize_findings(raw_findings)
 
