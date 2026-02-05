@@ -125,14 +125,14 @@ Project structure
 src/
   cli.py
   report.py
-  runner.py
+  loader.py
+  schema.py
   checks/
     structure.py
     completeness.py
     sanity.py
     types.py
 tests/
-config/
 data/
 ```
 
