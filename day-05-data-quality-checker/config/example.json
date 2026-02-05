@@ -1,0 +1,12 @@
+{
+  "severity": {
+    "missing_values": "fail",
+    "duplicate_rows": "fail",
+    "mixed_type_columns": "warn"
+  },
+  "ignore_columns": [],
+  "ignore": {
+    "missing_values": ["notes"],
+    "mixed_type_columns": []
+  }
+}

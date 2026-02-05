@@ -118,7 +118,7 @@ python -m src.cli data/sample.csv --list-checks
 Run with config:
 ```bash
 python -m src.cli data/sample.csv --config config.json
-```
+```TODO
 
 Project structure
 ```text
@@ -195,7 +195,7 @@ This mode is intended for:
 Example:
 ```bash
 python cli.py data/sample_dirty.csv --config schema.json --strict
-```
+``` # TODO
 ## Exit Codes
 
 - 0 — all checks passed

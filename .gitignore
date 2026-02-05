@@ -32,6 +32,9 @@ Thumbs.db
 !data/sample_prospects.csv
 
 outputs/
+report.json
+run_summary.json
+reports/
 
 test_site/
 

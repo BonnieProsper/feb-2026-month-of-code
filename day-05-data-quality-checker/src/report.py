@@ -186,6 +186,7 @@ def generate_report(
         "categories": category_summary,
     }
 
+    baseline_comparison = None
     if baseline_path:
         baseline = _load_baseline(baseline_path)
         baseline_comparison = _compare_to_baseline(report, baseline)
