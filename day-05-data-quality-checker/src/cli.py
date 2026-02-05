@@ -1,11 +1,11 @@
 import argparse
-from loader import load_csv
-from schema import load_schema
-from checks.structure import check_missing_required_columns, check_unexpected_columns
-from checks.completeness import check_missing_values, check_empty_rows
-from checks.sanity import check_duplicate_rows, check_constant_columns, check_numeric_ranges
-from checks.types import check_mixed_type_columns, check_numeric_like_strings
-from report import generate_report, apply_severity_policy
+from src.loader import load_csv
+from src.schema import load_schema
+from src.checks.structure import check_missing_required_columns, check_unexpected_columns
+from src.checks.completeness import check_missing_values, check_empty_rows
+from src.checks.sanity import check_duplicate_rows, check_constant_columns, check_numeric_ranges
+from src.checks.types import check_mixed_type_columns, check_numeric_like_strings
+from src.report import generate_report, apply_severity_policy
 
 
 def apply_column_ignores(df, check_name, schema):
