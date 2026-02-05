@@ -54,3 +54,24 @@ If the dataset quality has regressed, the report will include a
 baseline_comparison section and the console output will surface the change.
 
 When used with --strict, regressions will cause the run to fail.
+
+## Design philosophy
+
+This tool is intentionally opinionated and minimal.
+
+- **Checks declare facts, not policy**  
+  Each check reports what it finds. Severity and enforcement are applied later via configuration.
+
+- **Severity can only escalate**  
+  Configuration may tighten standards over time, but cannot hide real failures.
+
+- **Metadata travels with results**  
+  Categories, column impact, and details are produced by checks themselves, not inferred downstream.
+
+- **Deterministic and CI-friendly**  
+  Given the same data and config, results are stable, machine-readable, and suitable for automation.
+
+- **No silent coercion**  
+  Input data is loaded conservatively to surface data quality issues rather than mask them.
+
+The goal is not to be exhaustive, but to be trustworthy.

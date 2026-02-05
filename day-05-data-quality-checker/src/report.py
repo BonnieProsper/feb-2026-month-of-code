@@ -45,24 +45,47 @@ def _compare_to_baseline(current: Dict, baseline: Dict) -> Dict:
     return comparison
 
 
+SEVERITY_ORDER = {"pass": 0, "warn": 1, "fail": 2}
+
+
 def apply_severity_policy(
     results: List[Dict],
     severity_policy: Dict[str, str],
+    category_severity: Dict[str, str],
     default_severity: str = "fail",
 ) -> List[Dict]:
     """
     Re-interpret check severity based on config.
-    Passing checks are never downgraded.
+    Severity may only be escalated, never downgraded.
     """
     adjusted = []
 
     for r in results:
-        if r["status"] == "pass":
+        original = r["status"]
+
+        if original == "pass":
             adjusted.append(r)
             continue
 
-        new_status = severity_policy.get(r["name"], default_severity)
-        adjusted.append({**r, "status": new_status})
+        category = r.get("category")
+        category_level = (
+            category_severity.get(category)
+            if isinstance(category, str)
+            else None
+        )
+
+        desired = severity_policy.get(
+            r["name"],
+            category_level or default_severity,
+        )
+
+        final = (
+            desired
+            if SEVERITY_ORDER[desired] > SEVERITY_ORDER[original]
+            else original
+        )
+
+        adjusted.append({**r, "status": final})
 
     return adjusted
 
@@ -163,7 +186,6 @@ def generate_report(
         "categories": category_summary,
     }
 
-    baseline_comparison = None
     if baseline_path:
         baseline = _load_baseline(baseline_path)
         baseline_comparison = _compare_to_baseline(report, baseline)

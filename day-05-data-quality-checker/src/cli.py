@@ -33,6 +33,16 @@ def main() -> int:
         "--baseline",
         help="Path to a previous JSON report to compare against",
     )
+    parser.add_argument(
+        "--only-category",
+        action="append",
+        help="Only run/report checks in these categories (can be repeated)",
+    )
+    parser.add_argument(
+        "--list-checks",
+        action="store_true",
+        help="List all available checks and their categories, then exit",
+    )
 
     args = parser.parse_args()
 
@@ -67,14 +77,33 @@ def main() -> int:
     results.append(check_mixed_type_columns(df))
     results.append(check_numeric_like_strings(df))
 
+    if args.list_checks:
+        seen = set()
+        print("\nAvailable checks:\n")
+        for r in results:
+            key = (r["name"], r.get("category", "unknown"))
+            if key in seen:
+                continue
+            seen.add(key)
+            print(f"- {r['name']} ({r.get('category', 'unknown')})")
+        print()
+        return 0
+
+
     severity_policy = schema.get("severity", {})
+    category_severity = schema.get("category_severity", {})
     default_severity = schema.get("default_severity", "fail")
 
     results = apply_severity_policy(
         results,
         severity_policy=severity_policy,
+        category_severity=category_severity,
         default_severity=default_severity,
     )
+
+    if args.only_category:
+        allowed = set(args.only_category)
+        results = [r for r in results if r.get("category") in allowed]
 
     return generate_report(
         df,

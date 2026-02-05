@@ -51,3 +51,15 @@ def _validate_schema(config: Dict[str, Any]) -> None:
     if "ignore" in config:
         if not isinstance(config["ignore"], dict):
             raise ValueError("ignore must be an object mapping check_name -> column list")
+        for k, v in config["ignore"].items():
+            if not isinstance(v, list):
+                raise ValueError(f"ignore[{k}] must be a list")
+
+    if "category_severity" in config:
+        if not isinstance(config["category_severity"], dict):
+            raise ValueError("category_severity must be an object mapping category -> level")
+        for k, v in config["category_severity"].items():
+            if not isinstance(k, str):
+                raise ValueError("category_severity keys must be strings")
+            if v not in {"pass", "warn", "fail"}:
+                raise ValueError(f"Invalid severity '{v}' for category '{k}'")
