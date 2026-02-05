@@ -20,6 +20,7 @@ def check_missing_required_columns(
     if missing:
         return {
             "name": "missing_required_columns",
+            "category": "structure",
             "status": "fail",
             "details": {
                 "missing": missing
@@ -28,6 +29,7 @@ def check_missing_required_columns(
 
     return {
         "name": "missing_required_columns",
+        "category": "structure",
         "status": "pass",
         "details": {},
     }
@@ -50,6 +52,7 @@ def check_unexpected_columns(
     if unexpected:
         return {
             "name": "unexpected_columns",
+            "category": "structure",
             "status": "warn",
             "details": {
                 "unexpected": unexpected
@@ -58,6 +61,7 @@ def check_unexpected_columns(
 
     return {
         "name": "unexpected_columns",
+        "category": "structure",
         "status": "pass",
         "details": {},
     }

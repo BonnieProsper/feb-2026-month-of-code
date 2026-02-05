@@ -12,6 +12,7 @@ def check_duplicate_rows(
     if df.empty:
         return {
             "name": "duplicate_rows",
+            "category": "sanity",
             "status": "pass",
             "details": {},
         }
@@ -22,6 +23,7 @@ def check_duplicate_rows(
     if ratio > fail_threshold:
         return {
             "name": "duplicate_rows",
+            "category": "sanity",
             "status": "fail",
             "details": {
                 "count": int(duplicate_count),
@@ -32,6 +34,7 @@ def check_duplicate_rows(
     if duplicate_count > 0:
         return {
             "name": "duplicate_rows",
+            "category": "sanity",
             "status": "warn",
             "details": {
                 "count": int(duplicate_count),
@@ -41,6 +44,7 @@ def check_duplicate_rows(
 
     return {
         "name": "duplicate_rows",
+        "category": "sanity",
         "status": "pass",
         "details": {},
     }
@@ -53,6 +57,14 @@ def check_constant_columns(
     """
     Identify constant or near-constant columns.
     """
+    if df.columns.empty:
+        return {
+            "name": "...",
+            "category": "sanity",
+            "status": "pass",
+            "details": {},
+        }
+
     constant_cols = []
 
     for col in df.columns:
@@ -69,6 +81,7 @@ def check_constant_columns(
     if constant_cols:
         return {
             "name": "constant_columns",
+            "category": "sanity",
             "status": "warn",
             "details": {
                 "columns": constant_cols
@@ -77,6 +90,7 @@ def check_constant_columns(
 
     return {
         "name": "constant_columns",
+        "category": "sanity",
         "status": "pass",
         "details": {},
     }
@@ -114,6 +128,7 @@ def check_numeric_ranges(
     if not violations:
         return {
             "name": "numeric_ranges",
+            "category": "sanity",
             "status": "pass",
             "details": {},
         }
@@ -123,12 +138,14 @@ def check_numeric_ranges(
     if max_ratio > fail_threshold:
         return {
             "name": "numeric_ranges",
+            "category": "sanity",
             "status": "fail",
             "details": violations,
         }
 
     return {
         "name": "numeric_ranges",
+        "category": "sanity",
         "status": "warn",
         "details": violations,
     }

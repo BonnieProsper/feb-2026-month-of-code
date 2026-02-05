@@ -8,6 +8,18 @@ from checks.types import check_mixed_type_columns, check_numeric_like_strings
 from report import generate_report, apply_severity_policy
 
 
+def apply_column_ignores(df, check_name, schema):
+    global_ignore = set(schema.get("ignore_columns", []))
+    per_check_ignore = set(schema.get("ignore", {}).get(check_name, []))
+
+    ignored = global_ignore | per_check_ignore
+    if not ignored:
+        return df
+
+    remaining = [c for c in df.columns if c not in ignored]
+    return df[remaining]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Dataset quality checker")
     parser.add_argument("csv_path", help="Path to the CSV file to check")
@@ -41,7 +53,9 @@ def main() -> int:
         results.append(check_missing_required_columns(df, required_columns))
         results.append(check_unexpected_columns(df, required_columns))
 
-    results.append(check_missing_values(df, missing_warn))
+    df_mv = apply_column_ignores(df, "missing_values", schema)
+    results.append(check_missing_values(df_mv, missing_warn))
+
     results.append(check_empty_rows(df))
 
     results.append(check_duplicate_rows(df, duplicate_fail))
@@ -61,7 +75,6 @@ def main() -> int:
         severity_policy=severity_policy,
         default_severity=default_severity,
     )
-
 
     return generate_report(
         df,

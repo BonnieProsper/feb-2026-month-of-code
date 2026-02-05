@@ -33,6 +33,7 @@ def check_missing_values(
     if fully_missing:
         return {
             "name": "missing_values",
+            "category": "completeness",
             "status": "fail",
             "details": {
                 "fully_missing": fully_missing
@@ -42,12 +43,14 @@ def check_missing_values(
     if missing_percentages:
         return {
             "name": "missing_values",
+            "category": "completeness",
             "status": "warn",
             "details": missing_percentages,
         }
 
     return {
         "name": "missing_values",
+        "category": "completeness",
         "status": "pass",
         "details": {},
     }
@@ -60,6 +63,7 @@ def check_empty_rows(df: pd.DataFrame) -> Dict[str, Any]:
     if df.empty:
         return {
             "name": "empty_rows",
+            "category": "completeness",
             "status": "pass",
             "details": {},
         }
@@ -69,6 +73,7 @@ def check_empty_rows(df: pd.DataFrame) -> Dict[str, Any]:
     if empty_row_count > 0:
         return {
             "name": "empty_rows",
+            "category": "completeness",
             "status": "warn",
             "details": {
                 "count": int(empty_row_count)
@@ -77,6 +82,7 @@ def check_empty_rows(df: pd.DataFrame) -> Dict[str, Any]:
 
     return {
         "name": "empty_rows",
+        "category": "completeness",
         "status": "pass",
         "details": {},
     }

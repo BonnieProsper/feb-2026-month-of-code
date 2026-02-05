@@ -50,17 +50,21 @@ def apply_severity_policy(
     severity_policy: Dict[str, str],
     default_severity: str = "fail",
 ) -> List[Dict]:
-    evaluated = []
+    """
+    Re-interpret check severity based on config.
+    Passing checks are never downgraded.
+    """
+    adjusted = []
 
     for r in results:
-        if r.get("passed", r.get("status") == "pass"):
-            status = "pass"
-        else:
-            status = severity_policy.get(r["name"], default_severity)
+        if r["status"] == "pass":
+            adjusted.append(r)
+            continue
 
-        evaluated.append({**r, "status": status})
+        new_status = severity_policy.get(r["name"], default_severity)
+        adjusted.append({**r, "status": new_status})
 
-    return evaluated
+    return adjusted
 
 
 def generate_report(
@@ -129,6 +133,17 @@ def generate_report(
                     else "numeric"
                 )
 
+    category_summary: Dict[str, Dict[str, int]] = {}
+
+    for r in results:
+        category = r.get("category", "unknown")
+        category_summary.setdefault(
+            category,
+            {"pass": 0, "warn": 0, "fail": 0}
+        )
+        category_summary[category][r["status"]] += 1
+
+
     report = {
         "dataset": {
             "row_count": row_count,
@@ -145,6 +160,7 @@ def generate_report(
         },
         "checks": results,
         "columns": columns_summary,
+        "categories": category_summary,
     }
 
     baseline_comparison = None
@@ -176,6 +192,15 @@ def generate_report(
             extra = f" ({len(r['details'])} columns affected)"
         print(f"{symbol} {r['name']}{extra}")
 
+    print("\nCategory summary:")
+    for cat, counts in category_summary.items():
+        print(
+            f"- {cat}: "
+            f"{counts['pass']} pass, "
+            f"{counts['warn']} warn, "
+            f"{counts['fail']} fail"
+        )
+
     if baseline_comparison:
         print("\nBaseline comparison:")
         print(
@@ -191,6 +216,26 @@ def generate_report(
     if strict:
         print("\nStrict mode enabled: warnings are treated as failures")
 
-    print(f"\nReport written to: {output_file}\n")
+    summary_path = output_file.with_name("run_summary.json")
 
+    run_summary = {
+        "status": dataset_status,
+        "exit_code": exit_code,
+        "health_score": health_score,
+        "checks": {
+            "total": len(results),
+            "passed": passes,
+            "warned": warns,
+            "failed": fails,
+        },
+    }
+
+    if baseline_comparison:
+        run_summary["regression"] = baseline_comparison["regression"]
+        run_summary["health_score_delta"] = baseline_comparison["health_score_delta"]
+
+    summary_path.write_text(json.dumps(run_summary, indent=2))
+
+    print(f"\nReport written to: {output_file}\n")
+  
     return exit_code

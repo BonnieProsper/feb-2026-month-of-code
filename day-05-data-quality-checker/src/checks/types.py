@@ -6,6 +6,14 @@ def check_mixed_type_columns(df: pd.DataFrame) -> Dict[str, Any]:
     """
     Detect columns containing mixed numeric and non-numeric values.
     """
+    if df.columns.empty:
+        return {
+            "name": "...",
+            "category": "types",
+            "status": "pass",
+            "details": {},
+        }
+
     mixed_columns = []
 
     for col in df.columns:
@@ -24,6 +32,7 @@ def check_mixed_type_columns(df: pd.DataFrame) -> Dict[str, Any]:
     if mixed_columns:
         return {
             "name": "mixed_type_columns",
+            "category": "types",
             "status": "warn",
             "details": {
                 "columns": mixed_columns
@@ -32,6 +41,7 @@ def check_mixed_type_columns(df: pd.DataFrame) -> Dict[str, Any]:
 
     return {
         "name": "mixed_type_columns",
+        "category": "types",
         "status": "pass",
         "details": {},
     }
@@ -44,6 +54,14 @@ def check_numeric_like_strings(
     """
     Identify mostly-numeric columns that contain string values.
     """
+    if df.columns.empty:
+        return {
+            "name": "...",
+            "category": "types",
+            "status": "pass",
+            "details": {},
+        }
+
     problematic = []
 
     for col in df.columns:
@@ -61,6 +79,7 @@ def check_numeric_like_strings(
     if problematic:
         return {
             "name": "numeric_like_strings",
+            "category": "types",
             "status": "warn",
             "details": {
                 "columns": problematic
@@ -69,6 +88,7 @@ def check_numeric_like_strings(
 
     return {
         "name": "numeric_like_strings",
+        "category": "types",
         "status": "pass",
         "details": {},
     }
