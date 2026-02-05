@@ -44,6 +44,25 @@ def _compare_to_baseline(current: Dict, baseline: Dict) -> Dict:
 
     return comparison
 
+
+def apply_severity_policy(
+    results: List[Dict],
+    severity_policy: Dict[str, str],
+    default_severity: str = "fail",
+) -> List[Dict]:
+    evaluated = []
+
+    for r in results:
+        if r.get("passed", r.get("status") == "pass"):
+            status = "pass"
+        else:
+            status = severity_policy.get(r["name"], default_severity)
+
+        evaluated.append({**r, "status": status})
+
+    return evaluated
+
+
 def generate_report(
     df: pd.DataFrame,
     results: List[Dict],

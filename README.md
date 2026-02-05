@@ -64,7 +64,7 @@ Every project README includes a section for:
 | 02  | Broken Link Checker (CLI)            |
 | 03  | Invoice Generator (PDF)              |
 | 04  | Cold Email Personalization Engine    |
-| 05  | Competitor Price Tracker             |
+| 05  | Data Quality Checker                 |
 | 06  | Email Deliverability Analyzer        |
 | 07  | Contact Form Auto-Responder API      |
 | 08  | YouTube Transcript → Action Summary  |

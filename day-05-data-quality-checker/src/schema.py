@@ -36,3 +36,18 @@ def _validate_schema(config: Dict[str, Any]) -> None:
                 raise ValueError(f"Range for {col} must be an object")
             if "min" not in bounds or "max" not in bounds:
                 raise ValueError(f"Range for {col} must define min and max")
+
+    if "severity" in config:
+        if not isinstance(config["severity"], dict):
+            raise ValueError("severity must be an object mapping check_name -> level")
+        for k, v in config["severity"].items():
+            if v not in {"pass", "warn", "fail"}:
+                raise ValueError(f"Invalid severity '{v}' for check '{k}'")
+
+    if "ignore_columns" in config:
+        if not isinstance(config["ignore_columns"], list):
+            raise ValueError("ignore_columns must be a list")
+
+    if "ignore" in config:
+        if not isinstance(config["ignore"], dict):
+            raise ValueError("ignore must be an object mapping check_name -> column list")

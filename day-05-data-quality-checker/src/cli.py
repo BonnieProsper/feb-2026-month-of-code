@@ -5,7 +5,7 @@ from checks.structure import check_missing_required_columns, check_unexpected_co
 from checks.completeness import check_missing_values, check_empty_rows
 from checks.sanity import check_duplicate_rows, check_constant_columns, check_numeric_ranges
 from checks.types import check_mixed_type_columns, check_numeric_like_strings
-from report import generate_report
+from report import generate_report, apply_severity_policy
 
 
 def main() -> int:
@@ -52,6 +52,16 @@ def main() -> int:
 
     results.append(check_mixed_type_columns(df))
     results.append(check_numeric_like_strings(df))
+
+    severity_policy = schema.get("severity", {})
+    default_severity = schema.get("default_severity", "fail")
+
+    results = apply_severity_policy(
+        results,
+        severity_policy=severity_policy,
+        default_severity=default_severity,
+    )
+
 
     return generate_report(
         df,

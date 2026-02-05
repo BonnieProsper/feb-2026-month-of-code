@@ -34,3 +34,23 @@ python cli.py data/sample_dirty.csv --config schema.json --strict
 - 0 — all checks passed
 - 1 — warnings present
 - 2 — failures present (or strict mode violation)
+
+## Baseline Comparison
+
+The tool can compare the current run against a previous report to detect
+quality regressions.
+
+This comparison focuses on stable signals only:
+- dataset health score
+- number of warnings
+- number of failures
+
+Example:
+```bash
+python cli.py data/new.csv --baseline report_previous.json
+```
+
+If the dataset quality has regressed, the report will include a
+baseline_comparison section and the console output will surface the change.
+
+When used with --strict, regressions will cause the run to fail.
