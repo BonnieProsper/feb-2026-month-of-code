@@ -1,9 +1,10 @@
 import argparse
 import sys
 
-from .spf import analyze_spf
-from .report import normalize_findings, format_console_report, format_json_report
-from .dmarc import analyze_dmarc
+from spf import analyze_spf
+from dmarc import analyze_dmarc
+from dkim import check_dkim
+from report import normalize_findings, format_console_report, format_json_report
 
 
 def main() -> int:
@@ -20,18 +21,24 @@ def main() -> int:
         default="console",
         help="Output format (default: console)",
     )
+    parser.add_argument(
+        "--dkim-selector",
+        action="append",
+        help="Optional DKIM selector(s) to check. Can be used multiple times.",
+    )
 
     args = parser.parse_args()
 
+    # Collect raw findings from all modules
     raw_findings = []
-
-    # SPF and dmarc
     raw_findings.extend(analyze_spf(args.domain))
     raw_findings.extend(analyze_dmarc(args.domain))
+    raw_findings.extend(check_dkim(domain=args.domain, selectors=args.dkim_selector))
 
-
+    # Normalize findings for consistent reporting
     findings = normalize_findings(raw_findings)
 
+    # Output
     if args.format == "json":
         output = format_json_report(findings)
     else:

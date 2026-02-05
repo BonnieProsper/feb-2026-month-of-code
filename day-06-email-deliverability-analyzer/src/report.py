@@ -16,7 +16,8 @@ SEVERITY_MAP = {
     "dkim_not_detected": "FAIL",
     "dkim_selector_missing": "WARN",
     "dkim_lookup_error": "WARN",
-    "dkim_selector_found": "PASS",
+    "dkim_invalid_record": "WARN",
+    "dkim_selector_found": "PASS",  
 
     # DMARC
     "dmarc_missing": "FAIL",
