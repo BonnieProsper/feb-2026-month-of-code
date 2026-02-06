@@ -26,6 +26,12 @@ def main() -> int:
         action="append",
         help="Optional DKIM selector(s) to check. Can be used multiple times.",
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Treat WARN findings as failures",
+    )   
+
 
     args = parser.parse_args()
 
@@ -34,9 +40,19 @@ def main() -> int:
     raw_findings.extend(analyze_spf(args.domain))
     raw_findings.extend(analyze_dmarc(args.domain))
     raw_findings.extend(check_dkim(domain=args.domain, selectors=args.dkim_selector))
+    raw_findings.extend(analyze_bimi(args.domain))
+
 
     # Normalize findings for consistent reporting
     findings = normalize_findings(raw_findings)
+
+    has_fail = any(f["severity"] == "FAIL" for f in findings)
+    has_warn = any(f["severity"] == "WARN" for f in findings)
+
+    if args.strict:
+        return 1 if (has_fail or has_warn) else 0
+
+    return 1 if has_fail else 0
 
     # Output
     if args.format == "json":
@@ -53,3 +69,6 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+# add --format sarif
