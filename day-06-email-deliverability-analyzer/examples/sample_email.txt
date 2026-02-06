@@ -1,0 +1,17 @@
+From: Example Corp <no-reply@example.com>
+To: user@gmail.com
+Subject: Account notification
+Date: Tue, 06 Feb 2026 10:15:00 +0000
+Message-ID: <abc123@example.com>
+
+Hello,
+
+This is a sample email used to illustrate how authentication
+mechanisms (SPF, DKIM, DMARC) and brand indicators (BIMI)
+apply at the domain level.
+
+This project does NOT parse or validate individual messages.
+This file exists for documentation and reviewer context only.
+
+--
+Example Corp
