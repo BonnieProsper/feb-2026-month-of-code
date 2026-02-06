@@ -1,3 +1,5 @@
+import base64
+import re
 from typing import Iterable, List
 
 from dns_lookup import lookup_txt
@@ -12,6 +14,28 @@ COMMON_DKIM_SELECTORS = [
     "dkim",
     "mail",
 ]
+
+
+def _extract_dkim_public_key(txt_values: Iterable[str]) -> str | None:
+    combined = " ".join(txt_values)
+    match = re.search(r"\bp=([A-Za-z0-9+/=]+)", combined)
+    return match.group(1) if match else None
+
+
+def _infer_dkim_key_strength(public_key_b64: str) -> dict | None:
+    try:
+        decoded = base64.b64decode(public_key_b64, validate=True)
+    except Exception:
+        return None
+
+    key_bits = len(decoded) * 8
+
+    if key_bits >= 2048:
+        return {"strength": "strong", "bits": key_bits}
+    if key_bits >= 1024:
+        return {"strength": "marginal", "bits": key_bits}
+
+    return {"strength": "weak", "bits": key_bits}
 
 
 def _looks_like_dkim_record(txt_values: Iterable[str]) -> bool:
@@ -53,7 +77,19 @@ def check_dkim(domain: str, selectors: Iterable[str] | None = None) -> List[dict
             continue
 
         if _looks_like_dkim_record(records):
-            valid_selectors.append(selector)
+            public_key = _extract_dkim_public_key(records)
+            strength = (
+                _infer_dkim_key_strength(public_key)
+                if public_key
+                else None
+            )
+
+            valid_selectors.append(
+                {
+                    "selector": selector,
+                    "key_strength": strength,
+                }
+            )
         else:
             invalid_records.append(
                 {
@@ -81,6 +117,63 @@ def check_dkim(domain: str, selectors: Iterable[str] | None = None) -> List[dict
                 },
             }
         )
+
+        weak = []
+        marginal = []
+        strong = []
+
+        for entry in valid_selectors:
+            strength = entry.get("key_strength")
+            if not strength:
+                continue
+
+            if strength["strength"] == "weak":
+                weak.append(entry)
+            elif strength["strength"] == "marginal":
+                marginal.append(entry)
+            else:
+                strong.append(entry)
+
+        if weak:
+            findings.append(
+                {
+                    "check": "dkim",
+                    "signal": "dkim_weak_key",
+                    "summary": "Weak DKIM key detected",
+                    "explanation": (
+                        "One or more DKIM selectors use cryptographically weak RSA keys. "
+                        "Weak DKIM keys may be rejected or deprioritized by mailbox providers."
+                    ),
+                    "evidence": weak,
+                }
+            )
+
+        if marginal:
+            findings.append(
+                {
+                    "check": "dkim",
+                    "signal": "dkim_marginal_key",
+                    "summary": "Marginal DKIM key strength detected",
+                    "explanation": (
+                        "Some DKIM keys use 1024-bit RSA, which is considered marginal. "
+                        "Upgrading to 2048-bit or ed25519 is recommended."
+                    ),
+                    "evidence": marginal,
+                }
+            )
+
+        if strong:
+            findings.append(
+                {
+                    "check": "dkim",
+                    "signal": "dkim_strong_key",
+                    "summary": "Strong DKIM key detected",
+                    "explanation": (
+                        "At least one DKIM selector uses a strong cryptographic key."
+                    ),
+                    "evidence": strong,
+                }
+            )
 
         if invalid_records:
             findings.append(
@@ -119,3 +212,10 @@ def check_dkim(domain: str, selectors: Iterable[str] | None = None) -> List[dict
     )
 
     return findings
+
+
+# TODO: future improvement
+# Include ED25519 detection if heuristics expand 
+# (currently all keys are treated by byte length). 
+# Could add detection via v=DKIM1; 
+# k=ed25519 if TXT contains k= parameter.
