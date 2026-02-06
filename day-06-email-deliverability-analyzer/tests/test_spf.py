@@ -1,8 +1,8 @@
 from src.spf import analyze_spf
 
 def test_spf_missing(monkeypatch):
-    def fake_lookup(*args, **kwargs):
-        raise Exception("NXDOMAIN")
+    def fake_lookup(domain):
+        return {"status": "ok", "records": []}
 
     monkeypatch.setattr("src.spf.lookup_txt", fake_lookup)
 
@@ -13,8 +13,11 @@ def test_spf_missing(monkeypatch):
 
 
 def test_spf_present_basic(monkeypatch):
-    def fake_lookup(*args, **kwargs):
-        return ["v=spf1 include:_spf.google.com -all"]
+    def fake_lookup(domain):
+        return {
+            "status": "ok",
+            "records": ["v=spf1 include:_spf.google.com -all"],
+        }
 
     monkeypatch.setattr("src.spf.lookup_txt", fake_lookup)
 

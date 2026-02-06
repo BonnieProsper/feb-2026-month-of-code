@@ -114,6 +114,13 @@ def analyze_bimi(domain: str, provider: str | None = None):
             "summary": "No BIMI record found",
             "explanation": "No BIMI TXT record was found for this domain.",
         }]
+    except dns.resolver.NoAnswer:
+        return findings + [{
+            "check": "bimi",
+            "signal": "bimi_missing",
+            "summary": "No BIMI record found",
+            "explanation": "No BIMI TXT record was found for this domain.",
+        }]
     except Exception as e:
         return findings + [{
             "check": "bimi",

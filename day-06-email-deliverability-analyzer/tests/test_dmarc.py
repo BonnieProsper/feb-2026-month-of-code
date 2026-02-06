@@ -1,8 +1,8 @@
 from src.dmarc import analyze_dmarc
 
 def test_dmarc_missing(monkeypatch):
-    def fake_lookup(*args, **kwargs):
-        raise Exception("NXDOMAIN")
+    def fake_lookup(domain):
+        return {"status": "ok", "records": []}
 
     monkeypatch.setattr("src.dmarc.lookup_txt", fake_lookup)
 
@@ -13,8 +13,11 @@ def test_dmarc_missing(monkeypatch):
 
 
 def test_dmarc_reject_policy(monkeypatch):
-    def fake_lookup(*args, **kwargs):
-        return ["v=DMARC1; p=reject; rua=mailto:d@example.com"]
+    def fake_lookup(domain):
+        return {
+            "status": "ok",
+            "records": ["v=DMARC1; p=reject; rua=mailto:d@example.com"],
+        }
 
     monkeypatch.setattr("src.dmarc.lookup_txt", fake_lookup)
 
