@@ -39,6 +39,9 @@ SEVERITY_MAP: Dict[str, Severity] = {
     "bimi_no_logo": "WARN",
     "bimi_svg_invalid": "WARN",
     "bimi_present": "PASS",
+    # BIMI VMC
+    "bimi_vmc_valid": "PASS",
+    "bimi_vmc_invalid": "WARN",
 }
 
 
@@ -57,6 +60,37 @@ def _json_safe(value: Any) -> Any:
         return str(value)
 
 
+def _escalate_severity(
+    finding: Finding,
+    provider: str | None,
+) -> Severity:
+    signal = finding["signal"]
+    base = finding["severity"]
+
+    if not provider:
+        return base
+
+    # Google enforces BIMI more aggressively
+    if provider == "google":
+        if signal in {
+            "bimi_missing",
+            "bimi_invalid_record",
+            "bimi_no_logo",
+            "bimi_svg_invalid",
+        }:
+            return "FAIL"
+
+    # Weak DKIM is a real rejection risk
+    if signal == "dkim_weak_key":
+        return "FAIL"
+
+    # DMARC none is unacceptable once provider is known
+    if signal == "dmarc_policy_none":
+        return "FAIL"
+
+    return base
+
+
 def normalize_findings(findings: Iterable[Finding]) -> List[Finding]:
     """
     Normalize raw analyzer findings into a strict, stable, JSON-safe schema.
@@ -66,17 +100,22 @@ def normalize_findings(findings: Iterable[Finding]) -> List[Finding]:
     """
     normalized: List[Finding] = []
 
+    provider = None
+    for f in findings:
+        if f.get("check") == "provider" and "signal" in f:
+            provider = f["signal"].replace("provider_", "").replace("_detected", "")
+
     for f in findings:
         signal = f.get("signal")
         if not isinstance(signal, str):
             signal = "unknown"
 
-        severity: Severity = SEVERITY_MAP.get(signal, "WARN")
+        base_severity: Severity = SEVERITY_MAP.get(signal, "WARN")
 
         entry: Finding = {
             "check": f.get("check", "unknown"),
             "signal": signal,
-            "severity": severity,
+            "severity": base_severity,
             "summary": f.get("summary", ""),
             "explanation": f.get("explanation", ""),
         }
@@ -84,11 +123,13 @@ def normalize_findings(findings: Iterable[Finding]) -> List[Finding]:
         if "evidence" in f:
             entry["evidence"] = _json_safe(f["evidence"])
 
+        # escalation occurs
+        entry["severity"] = _escalate_severity(entry, provider)
+
         normalized.append(entry)
 
     normalized.sort(key=lambda f: SEVERITY_ORDER.get(f["severity"], 99))
     return normalized
-
 
 def format_console_report(findings: List[Finding]) -> str:
     sections: Dict[Severity, List[Finding]] = {

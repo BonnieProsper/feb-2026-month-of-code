@@ -1,6 +1,10 @@
 import dns.resolver
 import urllib.request
 import xml.etree.ElementTree as ET
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
+import datetime
 
 
 SVG_MAX_BYTES = 32 * 1024
@@ -47,6 +51,40 @@ def _validate_svg(svg_bytes: bytes) -> None:
 
     if "width" not in root.attrib or "height" not in root.attrib:
         raise ValueError("SVG must declare width and height")
+
+
+def _validate_vmc_certificate(url: str) -> None:
+    if not url.lower().startswith("https://"):
+        raise ValueError("VMC authority URL must use HTTPS")
+
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "email-deliverability-analyzer"},
+    )
+
+    with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
+        data = resp.read(64 * 1024)
+
+    try:
+        cert = x509.load_pem_x509_certificate(data, default_backend())
+    except ValueError:
+        try:
+            cert = x509.load_der_x509_certificate(data, default_backend())
+        except ValueError:
+            raise ValueError("Authority file is not a valid X.509 certificate")
+
+    now = datetime.datetime.utcnow()
+
+    if cert.not_valid_after < now:
+        raise ValueError("VMC certificate is expired")
+
+    pubkey = cert.public_key()
+    if isinstance(pubkey, rsa.RSAPublicKey):
+        if pubkey.key_size < 2048:
+            raise ValueError("VMC certificate RSA key is too small")
+
+    if not cert.subject or not cert.issuer:
+        raise ValueError("VMC certificate missing subject or issuer")
 
 
 def analyze_bimi(domain: str, provider: str | None = None):
@@ -105,7 +143,7 @@ def analyze_bimi(domain: str, provider: str | None = None):
             k, v = part.split("=", 1)
             parts[k.strip().lower()] = v.strip()
 
-    if parts.get("v", "").upper() != "BIMI1":
+    if parts.get("v", "").strip().upper() != "BIMI1":
         return findings + [{
             "check": "bimi",
             "signal": "bimi_invalid_record",
@@ -135,13 +173,23 @@ def analyze_bimi(domain: str, provider: str | None = None):
         }]
 
     authority = parts.get("a")
-    if authority and not authority.lower().startswith("https://"):
-        findings.append({
-            "check": "bimi",
-            "signal": "bimi_invalid_record",
-            "summary": "Invalid BIMI authority URL",
-            "evidence": authority,
-        })
+    if authority:
+        try:
+            _validate_vmc_certificate(authority)
+            findings.append({
+                "check": "bimi",
+                "signal": "bimi_vmc_valid",
+                "summary": "Valid BIMI VMC authority certificate detected",
+                "evidence": authority,
+            })
+        except Exception as e:
+            findings.append({
+                "check": "bimi",
+                "signal": "bimi_vmc_invalid",
+                "summary": "BIMI VMC authority certificate failed validation",
+                "explanation": str(e),
+                "evidence": authority,
+            })
 
     findings.append({
         "check": "bimi",
