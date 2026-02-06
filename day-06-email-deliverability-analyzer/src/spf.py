@@ -1,6 +1,6 @@
 from typing import List
 
-from .dns_lookup import lookup_txt
+from src.dns_lookup import lookup_txt
 
 
 SPF_PREFIX = "v=spf1"

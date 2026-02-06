@@ -2,17 +2,17 @@ import argparse
 import json
 import sys
 
-from spf import analyze_spf
-from dmarc import analyze_dmarc
-from dkim import check_dkim
-from bimi import analyze_bimi
-from report import (
+from src.spf import analyze_spf
+from src.dmarc import analyze_dmarc
+from src.dkim import check_dkim
+from src.bimi import analyze_bimi
+from src.report import (
     normalize_findings,
     format_console_report,
     format_json_report,
     format_sarif_report,
 )
-from provider import infer_email_provider
+from src.provider import infer_email_provider
 
 
 def main() -> int:

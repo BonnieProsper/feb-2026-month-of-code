@@ -2,7 +2,7 @@ import base64
 import re
 from typing import Iterable, List
 
-from dns_lookup import lookup_txt
+from src.dns_lookup import lookup_txt
 
 
 COMMON_DKIM_SELECTORS = [

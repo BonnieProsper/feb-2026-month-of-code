@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from .dns_lookup import lookup_txt
+from src.dns_lookup import lookup_txt
 
 
 DMARC_PREFIX = "v=DMARC1"
