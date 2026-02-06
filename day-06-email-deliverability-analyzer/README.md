@@ -31,6 +31,31 @@ It surfaces what matters.
 
 ---
 
+## Interpreting results for large providers
+
+Some large mailbox providers (e.g. Google, Yahoo, Microsoft) do not publish
+SPF, DKIM, or DMARC records at their organizational apex domains.
+
+This is intentional.
+
+These providers authenticate mail using:
+- delegated subdomains
+- per-product sending domains
+- organizational DMARC inheritance
+
+When analyzing such domains, this tool may report missing or non-enforcing
+authentication records. These findings are **informational**, not an assertion
+of misconfiguration.
+
+The analyzer evaluates:
+- what is observable at the queried domain
+- what a receiving MTA would see at lookup time
+
+It does not attempt to infer internal provider infrastructure or
+non-public policy delegation.
+
+---
+
 ## Output formats
 
 - **Console** — human-readable, grouped by severity

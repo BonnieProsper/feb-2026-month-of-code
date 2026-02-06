@@ -3,7 +3,7 @@ from typing import Dict, List
 from src.dns_lookup import lookup_txt
 
 
-DMARC_PREFIX = "v=DMARC1"
+DMARC_PREFIX = "v=dmarc1"
 
 
 def analyze_dmarc(domain: str) -> List[dict]:
@@ -44,7 +44,7 @@ def analyze_dmarc(domain: str) -> List[dict]:
 
     records = [
         r for r in result.get("records", [])
-        if r.upper().startswith(DMARC_PREFIX)
+        if r.lower().startswith(DMARC_PREFIX)
     ]
 
     if not records:

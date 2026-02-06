@@ -6,6 +6,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 import datetime
 
+from src.dns_lookup import lookup_txt
+
 
 SVG_MAX_BYTES = 32 * 1024
 FETCH_TIMEOUT = 5
@@ -105,34 +107,49 @@ def analyze_bimi(domain: str, provider: str | None = None):
 
     record_name = f"default._bimi.{domain}"
 
-    try:
-        answers = dns.resolver.resolve(record_name, "TXT")
-    except dns.resolver.NXDOMAIN:
+    result = lookup_txt(record_name)
+
+    if result["status"] == "timeout":
+        return findings + [{
+            "check": "bimi",
+            "signal": "bimi_lookup_error",
+            "summary": "BIMI lookup timed out",
+            "explanation": (
+                "The BIMI record could not be retrieved due to a DNS timeout."
+            ),
+            "evidence": result.get("error"),
+        }]
+
+    if result["status"] == "error":
+        return findings + [{
+            "check": "bimi",
+            "signal": "bimi_lookup_error",
+            "summary": "BIMI lookup failed",
+            "explanation": (
+                "An error occurred while retrieving the BIMI record."
+            ),
+            "evidence": result.get("error"),
+        }]
+
+    records = result.get("records", [])
+
+    if not records:
         return findings + [{
             "check": "bimi",
             "signal": "bimi_missing",
             "summary": "No BIMI record found",
             "explanation": "No BIMI TXT record was found for this domain.",
         }]
-    except dns.resolver.NoAnswer:
-        return findings + [{
-            "check": "bimi",
-            "signal": "bimi_missing",
-            "summary": "No BIMI record found",
-            "explanation": "No BIMI TXT record was found for this domain.",
-        }]
-    except Exception as e:
+
+    if len(records) != 1:
         return findings + [{
             "check": "bimi",
             "signal": "bimi_invalid_record",
-            "summary": "Error retrieving BIMI record",
-            "evidence": str(e),
+            "summary": "Multiple BIMI records detected",
+            "evidence": records,
         }]
 
-    records = [
-        "".join(part.decode() for part in r.strings)
-        for r in answers
-    ]
+    record = records[0]
 
     if len(records) != 1:
         return findings + [{
