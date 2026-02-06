@@ -68,7 +68,8 @@ def check_dkim(domain: str, selectors: Iterable[str] | None = None) -> List[dict
         checked.append(hostname)
 
         try:
-            records = lookup_txt(hostname)
+            result = lookup_txt(hostname)
+            records = result.get("records", [])
         except Exception:
             # DNS failures are treated as absence, not hard failure
             continue

@@ -1,4 +1,3 @@
-import dns.resolver
 import urllib.request
 import xml.etree.ElementTree as ET
 from cryptography import x509
@@ -38,6 +37,8 @@ def _fetch_svg(url: str) -> bytes:
 
 
 def _validate_svg(svg_bytes: bytes) -> None:
+    if b"<!DOCTYPE" in svg_bytes.upper():
+        raise ValueError("SVG must not contain a DOCTYPE declaration")
     try:
         root = ET.fromstring(svg_bytes)
     except ET.ParseError:
@@ -77,7 +78,7 @@ def _validate_vmc_certificate(url: str) -> None:
 
     now = datetime.datetime.utcnow()
 
-    if cert.not_valid_after < now:
+    if cert.not_valid_after.replace(tzinfo=None) < now:
         raise ValueError("VMC certificate is expired")
 
     pubkey = cert.public_key()
@@ -140,16 +141,6 @@ def analyze_bimi(domain: str, provider: str | None = None):
             "summary": "No BIMI record found",
             "explanation": "No BIMI TXT record was found for this domain.",
         }]
-
-    if len(records) != 1:
-        return findings + [{
-            "check": "bimi",
-            "signal": "bimi_invalid_record",
-            "summary": "Multiple BIMI records detected",
-            "evidence": records,
-        }]
-
-    record = records[0]
 
     if len(records) != 1:
         return findings + [{
