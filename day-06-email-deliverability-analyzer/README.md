@@ -54,13 +54,21 @@ They are caused by:
 This project focuses on **observable failure modes**, not RFC reenactment.
 
 ---
+### Running the CLI
+
+This project is structured as a Python package.
+Run the CLI using module execution from the repository root:
+
+```bash
+python -m src.cli example.com
 
 ## Usage
 
 ```bash
-python cli.py example.com
-python cli.py example.com --format json
-python cli.py example.com --strict
+python -m src.cli example.com
+python -m src.cli example.com --format json
+python -m src.cli example.com --strict
+python -m src.cli example.com --dkim-selector s1
 ```
 
 Optional DKIM selectors:
