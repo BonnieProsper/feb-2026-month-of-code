@@ -2,8 +2,6 @@ import dns.resolver
 import urllib.request
 import xml.etree.ElementTree as ET
 
-from provider import infer_email_provider
-
 
 SVG_MAX_BYTES = 32 * 1024
 FETCH_TIMEOUT = 5
@@ -51,18 +49,21 @@ def _validate_svg(svg_bytes: bytes) -> None:
         raise ValueError("SVG must declare width and height")
 
 
-def analyze_bimi(domain: str):
+def analyze_bimi(domain: str, provider: str | None = None):
     findings = []
 
     # Provider inference (informational only)
-    provider = infer_email_provider(domain)
     if provider:
-        findings.append({
-            "check": "bimi",
-            "signal": f"provider_{provider}_detected",
-            "summary": f"{provider.title()} email provider detected",
-            "explanation": "Mailbox provider inferred from MX records.",
-        })
+        findings.append(
+            {
+                "check": "bimi",
+                "signal": f"provider_{provider}_context",
+                "summary": f"BIMI evaluated in {provider.title()} context",
+                "explanation": (
+                    "Mailbox providers apply different BIMI and VMC enforcement rules."
+                ),
+            }
+        )
 
     record_name = f"default._bimi.{domain}"
 

@@ -12,6 +12,7 @@ from report import (
     format_json_report,
     format_sarif_report,
 )
+from provider import infer_email_provider
 
 
 def main() -> int:
@@ -36,12 +37,28 @@ def main() -> int:
     )
 
     args = parser.parse_args()
+    domain = args.domain
 
     raw_findings = []
+
+    provider = infer_email_provider(domain)
+    if provider:
+        raw_findings.append(
+            {
+                "check": "provider",
+                "signal": f"provider_{provider}_detected",
+                "summary": f"{provider.title()} email provider detected",
+                "explanation": (
+                    "Primary mailbox provider inferred from MX records. "
+                    "Some authentication and BIMI behaviors are provider-specific."
+                ),
+            }
+        )
+
     raw_findings.extend(analyze_spf(args.domain))
     raw_findings.extend(analyze_dmarc(args.domain))
     raw_findings.extend(check_dkim(args.domain, args.dkim_selector))
-    raw_findings.extend(analyze_bimi(args.domain))
+    raw_findings.extend(analyze_bimi(args.domain, provider=provider))
 
     findings = normalize_findings(raw_findings)
 
