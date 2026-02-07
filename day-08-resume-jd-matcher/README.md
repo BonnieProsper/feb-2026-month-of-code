@@ -4,10 +4,10 @@ ________________________________________
 ## Overview
 This tool compares a resume and a job description using explicit, surface-level text similarity measures.
 Its purpose is not to predict hiring outcomes or evaluate candidate quality.
-It exists to make resume–job alignment inspectable, auditable, and explainable.
+It exists to make resume-job alignment inspectable, auditable, and explainable.
+
 The output answers a narrow but common question:
-Given the text that appears in this resume and this job description, where do they align, and where do they diverge?
-Nothing more is claimed.
+- Given the text that appears in this resume and this job description, where do they align, and where do they diverge?
 ________________________________________
 ## What this tool measures
 This tool measures textual alignment, specifically:
@@ -15,6 +15,7 @@ This tool measures textual alignment, specifically:
 -	Relative emphasis of terms in each document
 -	Directional coverage (what the JD mentions that the resume does not, and vice versa)
 -	Statistically weighted similarity using TF-IDF and cosine similarity
+
 All metrics are computed directly from visible text.
 There is no inference beyond term frequency and weighting.
 ________________________________________
@@ -27,6 +28,7 @@ This tool does not:
 -	Emulate ATS ranking systems
 -	Rewrite or recommend changes to resumes
 -	Perform semantic matching or synonym expansion
+
 A low similarity value does not mean a candidate is unqualified.
 A high similarity value does not mean a candidate should be hired.
 The output reflects text usage only.
@@ -37,15 +39,14 @@ Resumes and job descriptions are not neutral datasets:
 -	Job descriptions are often aspirational or templated
 -	Important experience is frequently described indirectly
 -	The same concept appears under many surface forms
-Attempting to “solve” this holistically often leads to opaque heuristics and overconfident scoring.
-This tool intentionally avoids that.
+Attempting to “solve” this holistically often leads to opaque heuristics and overconfident scoring. This tool intentionally avoids that.
 It favors conservative, inspectable signals over speculative intelligence.
 ________________________________________
 ## Input handling
 ### Resume
 -	Supported formats:
-  - PDF (best-effort text extraction)
-  - Plain text (.txt)
+    - PDF (best-effort text extraction)
+    - Plain text (.txt)
 -	PDF extraction uses a text-first parser
 -	Scanned or image-based PDFs will not extract reliably
 Extraction warnings are surfaced explicitly.
@@ -62,26 +63,28 @@ Steps (intentionally minimal and lossy):
 3.	Whitespace tokenization
 4.	Removal of a small, explicit stopword list
 5.	Dropping very short tokens
+
 No stemming, lemmatization, synonym expansion, or phrase inference is performed.
+
 Tradeoffs are deliberate:
 -	Consistency and inspectability over semantic richness
 -	Reduced noise at the cost of nuance
 ________________________________________
 ## Similarity metrics
 The tool reports three complementary signals.
-1. ### TF-IDF cosine similarity
+### 1. TF-IDF cosine similarity
 Measures how similar the weighted term distributions of the resume and job description are.
 -	Downweights boilerplate
 -	Independent of document length
 -	Bounded between 0 and 1
 This reflects shared vocabulary emphasis, not semantic equivalence.
 ________________________________________
-2. ### Job description coverage ratio
+### 2. Job description coverage ratio
 The fraction of unique job description terms that appear at least once in the resume.
 This answers:
 How much of the JD’s vocabulary is represented in the resume text?
 ________________________________________
-3. ### Resume relevance ratio
+### 3. Resume relevance ratio
 The fraction of unique resume terms that appear at least once in the job description.
 This answers:
 How much of the resume’s vocabulary aligns with the JD’s vocabulary?
@@ -138,4 +141,12 @@ This project prioritizes:
 -	Transparency over cleverness
 -	Inspectability over inference
 -	Explicit limitations over optimistic claims
+
 Every metric, transformation, and output can be traced back to visible text and simple math.
+
+## Next Steps
+
+Possible extensions, if done carefully:
+- Section-aware parsing (skills vs experience)
+- Configurable weighting (e.g, skills > responsibilities)
+- Comparison against multiple job descriptions
