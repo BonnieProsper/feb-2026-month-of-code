@@ -98,7 +98,7 @@ def _run_cli(argv: list[str]) -> None:
 
     if args.command != "inspect":
         parser.print_help()
-        sys.exit(1)
+        sys.exit(1) 
 
     events = list(
         storage.list_events(
