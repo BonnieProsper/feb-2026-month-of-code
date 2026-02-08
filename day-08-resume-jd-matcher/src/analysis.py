@@ -23,7 +23,7 @@ class GapAnalysisResult:
     shared_terms: List[str]
 
 
-def classify_gap(term: str, resume_tokens: set, resume_text: str) -> GapConfidence:
+def classify_gap(term: str, resume_tokens: set[str], resume_text: str) -> GapConfidence:
     normalized = term.lower()
 
     if normalized in resume_tokens or normalized in resume_text:
@@ -51,7 +51,7 @@ def explain_gap(term: str, confidence: GapConfidence) -> str:
 def analyze_gaps(
     resume_tfidf: Dict[str, float],
     jd_tfidf: Dict[str, float],
-    resume_tokens: set,
+    resume_tokens: set[str],
     resume_text: str,
     top_n: int = 15,
     epsilon: float = 1e-6,
@@ -63,14 +63,17 @@ def analyze_gaps(
     for term, weight in jd_sorted:
         if len(gaps) >= top_n:
             break
-
         if weight <= epsilon:
             continue
 
         confidence = classify_gap(term, resume_tokens, resume_text)
-        explanation = explain_gap(term, confidence)
-
-        gaps.append(GapDetail(term, confidence, explanation))
+        gaps.append(
+            GapDetail(
+                term=term,
+                confidence=confidence,
+                explanation=explain_gap(term, confidence),
+            )
+        )
 
     resume_emphasized_extra = [
         term
