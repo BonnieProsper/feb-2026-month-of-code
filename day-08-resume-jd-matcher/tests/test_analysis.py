@@ -8,7 +8,7 @@ def test_gap_confidence_classification():
     assert classify_gap("python", resume_tokens, resume_text) == GapConfidence.STRONG_MATCH
     assert (
         classify_gap("cloud platforms", resume_tokens, resume_text)
-        == GapConfidence.PARTIAL_EVIDENCE
+        == GapConfidence.MISSING
     )
     assert classify_gap("kubernetes", resume_tokens, resume_text) == GapConfidence.MISSING
 

@@ -3,10 +3,10 @@ import json
 from pathlib import Path
 import random
 
-from parse_resume import parse_resume
-from preprocess import preprocess_text
-from similarity import compute_similarity
-from analysis import analyze_gaps, GapConfidence
+from src.parse_resume import parse_resume
+from src.preprocess import preprocess_text
+from src.similarity import compute_similarity
+from src.analysis import analyze_gaps, GapConfidence
 
 
 def main() -> None:
@@ -68,7 +68,7 @@ def main() -> None:
 
 def _print_human(resume, similarity, gaps) -> None:
     print()
-    print("Resume ↔ Job Description Text Comparison")
+    print("Resume <-> Job Description Text Comparison")
     print("---------------------------------------")
     print("This tool compares surface-level text usage only.")
     print()
