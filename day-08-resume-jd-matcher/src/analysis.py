@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Tuple, Dict
+from typing import Dict, List
 from enum import Enum
 
 
@@ -10,84 +10,82 @@ class GapConfidence(Enum):
 
 
 @dataclass
+class GapDetail:
+    term: str
+    confidence: GapConfidence
+    explanation: str
+
+
+@dataclass
 class GapAnalysisResult:
-    jd_emphasized_missing: List[Tuple[str, float]]
-    resume_emphasized_extra: List[Tuple[str, float]]
-    shared_emphasis: List[Tuple[str, float, float]]
+    gaps: List[GapDetail]
+    resume_emphasized_extra: List[str]
+    shared_terms: List[str]
 
 
-def classify_gap(jd_term: str, resume_tokens: set, resume_text: str) -> GapConfidence:
-    """
-    Determine how strongly a JD term is supported by resume evidence.
+def classify_gap(term: str, resume_tokens: set, resume_text: str) -> GapConfidence:
+    normalized = term.lower()
 
-    This is intentionally conservative: we only upgrade confidence
-    when explicit textual evidence exists.
-    """
-    normalized_term = jd_term.lower()
-
-    # Strong match: exact token or exact phrase
-    if normalized_term in resume_tokens or normalized_term in resume_text:
+    if normalized in resume_tokens or normalized in resume_text:
         return GapConfidence.STRONG_MATCH
 
-    # Partial evidence: overlapping sub-terms
-    term_parts = normalized_term.split()
-    overlap = [t for t in term_parts if t in resume_tokens]
-
-    if overlap:
+    parts = normalized.split()
+    if any(p in resume_tokens for p in parts):
         return GapConfidence.PARTIAL_EVIDENCE
 
     return GapConfidence.MISSING
 
 
+def explain_gap(term: str, confidence: GapConfidence) -> str:
+    if confidence == GapConfidence.STRONG_MATCH:
+        return f"'{term}' is explicitly referenced in the resume."
+
+    if confidence == GapConfidence.PARTIAL_EVIDENCE:
+        return (
+            f"'{term}' is not explicitly named, but related experience appears to be present."
+        )
+
+    return f"'{term}' is emphasized in the job description but not evidenced in the resume."
+
+
 def analyze_gaps(
     resume_tfidf: Dict[str, float],
     jd_tfidf: Dict[str, float],
+    resume_tokens: set,
+    resume_text: str,
     top_n: int = 15,
     epsilon: float = 1e-6,
 ) -> GapAnalysisResult:
-    jd_sorted = sorted(
-        jd_tfidf.items(), key=lambda x: x[1], reverse=True
-    )
-    resume_sorted = sorted(
-        resume_tfidf.items(), key=lambda x: x[1], reverse=True
-    )
+    gaps: List[GapDetail] = []
 
-    jd_emphasized_missing: List[Tuple[str, float]] = []
-    resume_emphasized_extra: List[Tuple[str, float]] = []
-    shared_emphasis: List[Tuple[str, float, float]] = []
+    jd_sorted = sorted(jd_tfidf.items(), key=lambda x: x[1], reverse=True)
 
-    # JD terms not represented in resume
-    for term, jd_weight in jd_sorted:
-        if len(jd_emphasized_missing) >= top_n:
+    for term, weight in jd_sorted:
+        if len(gaps) >= top_n:
             break
 
-        resume_weight = resume_tfidf.get(term, 0.0)
-        if jd_weight > epsilon and resume_weight <= epsilon:
-            jd_emphasized_missing.append((term, jd_weight))
+        if weight <= epsilon:
+            continue
 
-    # Resume terms not represented in JD
-    for term, resume_weight in resume_sorted:
-        if len(resume_emphasized_extra) >= top_n:
-            break
+        confidence = classify_gap(term, resume_tokens, resume_text)
+        explanation = explain_gap(term, confidence)
 
-        jd_weight = jd_tfidf.get(term, 0.0)
-        if resume_weight > epsilon and jd_weight <= epsilon:
-            resume_emphasized_extra.append((term, resume_weight))
+        gaps.append(GapDetail(term, confidence, explanation))
 
-    # Shared emphasis
-    for term, jd_weight in jd_sorted:
-        if len(shared_emphasis) >= top_n:
-            break
+    resume_emphasized_extra = [
+        term
+        for term, w in resume_tfidf.items()
+        if w > epsilon and jd_tfidf.get(term, 0.0) <= epsilon
+    ][:top_n]
 
-        resume_weight = resume_tfidf.get(term, 0.0)
-        if jd_weight > epsilon and resume_weight > epsilon:
-            shared_emphasis.append((term, jd_weight, resume_weight))
+    shared_terms = [
+        term
+        for term, w in jd_tfidf.items()
+        if w > epsilon and resume_tfidf.get(term, 0.0) > epsilon
+    ][:top_n]
 
     return GapAnalysisResult(
-        jd_emphasized_missing=jd_emphasized_missing,
+        gaps=gaps,
         resume_emphasized_extra=resume_emphasized_extra,
-        shared_emphasis=shared_emphasis,
+        shared_terms=shared_terms,
     )
-
-
-# update gap analysis output??: gap_analysis: dict[str, GapConfidence]
