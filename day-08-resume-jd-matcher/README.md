@@ -95,12 +95,18 @@ Gap analysis is descriptive, not prescriptive.
 The tool reports three ranked lists:
 ### Job-description-emphasized terms weakly represented in the resume
 Terms that carry high weight in the JD but are absent or minimal in the resume text.
+Each term is assigned:
+     - **Categorical confidence**: STRONG_MATCH, PARTIAL_EVIDENCE, MISSING
+     - **Numeric score**: confidence-weighted by JD TF-IDF importance
+     - **Category**: e.g., Languages, Frameworks, Tooling
 ### Resume-emphasized terms with low JD presence
 Terms heavily emphasized in the resume but barely present in the JD.
 ### Shared high-emphasis terms
 Terms that are emphasized in both documents.
 Ranking is based on TF-IDF weight.
 All terms are directly traceable to the source text.
+
+The tool also produces **category-aware diagnostics** for missing skills, grouping absent items by taxonomy for easy inspection (e.g., all missing cloud skills together).
 ________________________________________
 ## Output
 ### Human-readable CLI output
@@ -110,8 +116,24 @@ The default CLI output:
 -	Explains each metric inline
 -	Avoids judgmental language
 ### JSON output
-A --json flag emits structured output only, suitable for scripting or further inspection.
-No interpretation strings are embedded in JSON.
+
+Using the `--json` flag emits structured output suitable for downstream analysis:
+
+```json
+{
+  "similarity": { ... },
+  "gaps": [
+    {
+      "term": "docker",
+      "confidence": "missing",
+      "score": 0.0,
+      "explanation": "Emphasized in the job description but not evidenced in the resume"
+    }
+  ],
+  "resume_emphasized_extra": [ ... ],
+  "shared_terms": [ ... ]
+}
+```
 ________________________________________
 ## Known limitations
 This tool intentionally accepts the following limitations:
@@ -144,9 +166,8 @@ This project prioritizes:
 
 Every metric, transformation, and output can be traced back to visible text and simple math.
 
-## Next Steps
+## Possible Next Steps
 
-Possible extensions, if done carefully:
-- Section-aware parsing (skills vs experience)
-- Configurable weighting (e.g, skills > responsibilities)
-- Comparison against multiple job descriptions
+- Tiered weighting: prioritize skills vs responsibilities in gap scoring
+- Section-aware analysis (skills, experience, certifications)
+- Multi-job comparisons for benchmarking
