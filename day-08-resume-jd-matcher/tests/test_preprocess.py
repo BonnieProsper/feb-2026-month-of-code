@@ -3,19 +3,21 @@ from src.preprocess import preprocess_text
 
 def test_basic_normalization():
     text = "Python, Docker & SQL."
-    tokens = preprocess_text(text)
+    result = preprocess_text(text)
 
-    assert "python" in tokens
-    assert "docker" in tokens
-    assert "sql" in tokens
+    assert "python" in result.tokens
+    assert "docker" in result.tokens
+    assert "sql" in result.tokens
 
 
 def test_idempotency():
     text = "Built APIs in Python."
-    tokens = preprocess_text(text)
+    first = preprocess_text(text)
+    second = preprocess_text(" ".join(first.tokens))
 
-    assert preprocess_text(" ".join(tokens)) == tokens
+    assert second.tokens == first.tokens
 
 
 def test_empty_input():
-    assert preprocess_text("") == []
+    result = preprocess_text("")
+    assert result.tokens == []
