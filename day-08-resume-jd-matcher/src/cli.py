@@ -7,6 +7,14 @@ from preprocess import preprocess_text
 from similarity import compute_similarity
 from analysis import analyze_gaps
 
+import requests
+
+def f():
+    try:
+        requests.get("https://example.com")
+    except Exception:
+        pass
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
