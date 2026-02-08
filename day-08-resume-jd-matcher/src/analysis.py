@@ -1,9 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict, List
 from enum import Enum
-from collections import defaultdict
-
-from .taxonomy import classify_skill
 
 
 class GapConfidence(Enum):
@@ -16,7 +13,7 @@ class GapConfidence(Enum):
 class GapDetail:
     term: str
     confidence: GapConfidence
-    explanation: str
+    explanation: str | None = None  # populated later
 
 
 @dataclass
@@ -39,31 +36,6 @@ def classify_gap(term: str, resume_tokens: set[str], resume_text: str) -> GapCon
     return GapConfidence.MISSING
 
 
-def explain_gap(term: str, confidence: GapConfidence) -> str:
-    if confidence == GapConfidence.STRONG_MATCH:
-        return f"'{term}' is explicitly referenced in the resume."
-
-    if confidence == GapConfidence.PARTIAL_EVIDENCE:
-        return (
-            f"'{term}' is not explicitly named, but related experience appears to be present."
-        )
-
-    return f"'{term}' is emphasized in the job description but not evidenced in the resume."
-
-
-def group_gaps_by_category(
-    gaps: Dict[str, GapConfidence]
-) -> Dict[str, List[str]]:
-    grouped = defaultdict(list)
-
-    for term, confidence in gaps.items():
-        if confidence == GapConfidence.MISSING:
-            category = classify_skill(term)
-            grouped[category].append(term)
-
-    return dict(grouped)
-
-
 def analyze_gaps(
     resume_tfidf: Dict[str, float],
     jd_tfidf: Dict[str, float],
@@ -83,13 +55,7 @@ def analyze_gaps(
             continue
 
         confidence = classify_gap(term, resume_tokens, resume_text)
-        gaps.append(
-            GapDetail(
-                term=term,
-                confidence=confidence,
-                explanation=explain_gap(term, confidence),
-            )
-        )
+        gaps.append(GapDetail(term=term, confidence=confidence))
 
     resume_emphasized_extra = [
         term

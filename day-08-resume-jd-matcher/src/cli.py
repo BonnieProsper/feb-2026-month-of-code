@@ -7,6 +7,7 @@ from src.parse_resume import parse_resume
 from src.preprocess import preprocess_text
 from src.similarity import compute_similarity
 from src.analysis import analyze_gaps, GapConfidence
+from src.explain import explain_gap
 
 
 def main() -> None:
@@ -44,6 +45,9 @@ def main() -> None:
         top_n=args.top_n,
     )
 
+    for g in gaps.gaps:
+        g.explanation = explain_gap(g.term, g.confidence)
+
     if args.json:
         print(
             json.dumps(
@@ -63,13 +67,13 @@ def main() -> None:
         )
         return
 
-    _print_human(resume_result, similarity, gaps)
+    _print_human(similarity, gaps)
 
 
-def _print_human(resume, similarity, gaps) -> None:
+def _print_human(similarity, gaps) -> None:
     print()
     print("Resume <-> Job Description Text Comparison")
-    print("---------------------------------------")
+    print("----------------------------------------")
     print("This tool compares surface-level text usage only.")
     print()
 
@@ -89,13 +93,18 @@ def _print_human(resume, similarity, gaps) -> None:
     for g in gaps.gaps:
         grouped[g.confidence].append(g)
 
-    print("Gap analysis")
+    print("Gap Analysis")
     print("------------")
 
     for confidence in GapConfidence:
         print(confidence.value.replace("_", " ").title() + ":")
-        for g in grouped[confidence]:
-            print(f"  - {g.term}: {g.explanation}")
+        items = grouped[confidence]
+
+        if not items:
+            print("  (no items detected)")
+        else:
+            for g in items:
+                print(f"  - {g.term}: {g.explanation}")
         print()
 
 

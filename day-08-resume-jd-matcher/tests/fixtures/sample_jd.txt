@@ -1,0 +1,14 @@
+We are seeking a Backend Software Engineer to join our platform team.
+
+Responsibilities:
+- Design and maintain RESTful APIs
+- Build backend services using Python
+- Work with relational databases such as PostgreSQL
+- Collaborate with infrastructure teams on deployment and scaling
+
+Requirements:
+- Strong experience with Python
+- Familiarity with Docker and containerized deployments
+- Experience with cloud platforms such as AWS
+- Knowledge of CI/CD pipelines
+- Comfortable working with SQL databases
