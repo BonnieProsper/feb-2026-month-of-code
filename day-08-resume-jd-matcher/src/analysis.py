@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from typing import Dict, List
 from enum import Enum
+from collections import defaultdict
+
+from .taxonomy import classify_skill
 
 
 class GapConfidence(Enum):
@@ -46,6 +49,19 @@ def explain_gap(term: str, confidence: GapConfidence) -> str:
         )
 
     return f"'{term}' is emphasized in the job description but not evidenced in the resume."
+
+
+def group_gaps_by_category(
+    gaps: Dict[str, GapConfidence]
+) -> Dict[str, List[str]]:
+    grouped = defaultdict(list)
+
+    for term, confidence in gaps.items():
+        if confidence == GapConfidence.MISSING:
+            category = classify_skill(term)
+            grouped[category].append(term)
+
+    return dict(grouped)
 
 
 def analyze_gaps(
